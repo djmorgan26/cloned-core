@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 
+const STORAGE_KEY = 'cloned:sidebar-collapsed';
+
 const NAV_ITEMS = [
-  { to: '/', label: 'Overview', icon: '◎' },
+  { to: '/overview', label: 'Overview', icon: '◎' },
   { to: '/connectors', label: 'Connectors', icon: '⟨⟩' },
   { to: '/runs', label: 'Runs', icon: '▷' },
   { to: '/approvals', label: 'Approvals', icon: '✓' },
@@ -12,62 +14,52 @@ const NAV_ITEMS = [
   { to: '/doctor', label: 'Doctor', icon: '♥' },
 ];
 
-const styles: Record<string, React.CSSProperties> = {
-  sidebar: {
-    width: 'var(--sidebar-w)',
-    minHeight: '100vh',
-    background: 'var(--bg-card)',
-    borderRight: '1px solid var(--border)',
-    display: 'flex',
-    flexDirection: 'column',
-    padding: '0',
-    flexShrink: 0,
-  },
-  logo: {
-    padding: '20px 16px',
-    borderBottom: '1px solid var(--border)',
-    fontWeight: 700,
-    fontSize: 16,
-    color: 'var(--text)',
-    letterSpacing: '-0.02em',
-  },
-  logoAccent: { color: 'var(--accent)' },
-  nav: { flex: 1, padding: '12px 8px' },
-};
-
 export function Sidebar() {
+  const [collapsed, setCollapsed] = useState(() =>
+    localStorage.getItem(STORAGE_KEY) === 'true',
+  );
+
+  const toggle = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem(STORAGE_KEY, String(next));
+      return next;
+    });
+  };
+
   return (
-    <aside style={styles.sidebar}>
-      <div style={styles.logo}>
-        <span style={styles.logoAccent}>⬡</span> Cloned
+    <aside className={`sidebar${collapsed ? ' sidebar--collapsed' : ''}`}>
+      <div className="sidebar-header">
+        <span className="sidebar-logo-icon">⬡</span>
+        <span className="sidebar-logo-text">Cloned</span>
+        <button
+          className="sidebar-toggle"
+          onClick={toggle}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          <span className={`sidebar-chevron${collapsed ? ' sidebar-chevron--flipped' : ''}`}>‹</span>
+        </button>
       </div>
-      <nav style={styles.nav}>
+
+      <nav className="sidebar-nav">
         {NAV_ITEMS.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
-            end={item.to === '/'}
-            style={({ isActive }) => ({
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              padding: '8px 10px',
-              borderRadius: 'var(--radius)',
-              color: isActive ? 'var(--text)' : 'var(--text-muted)',
-              background: isActive ? 'var(--bg-hover)' : 'transparent',
-              fontWeight: isActive ? 600 : 400,
-              fontSize: 13,
-              marginBottom: 2,
-              transition: 'all 0.1s',
-            })}
+            className={({ isActive }) =>
+              `sidebar-link${isActive ? ' sidebar-link--active' : ''}`
+            }
+            title={collapsed ? item.label : undefined}
           >
-            <span style={{ fontSize: 14, width: 18, textAlign: 'center' }}>{item.icon}</span>
-            {item.label}
+            <span className="sidebar-icon">{item.icon}</span>
+            <span className="sidebar-label">{item.label}</span>
           </NavLink>
         ))}
       </nav>
-      <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)', fontSize: 11, color: 'var(--text-dim)' }}>
-        v0.1.0 · Local
+
+      <div className="sidebar-footer">
+        <span className="sidebar-label">v0.1.0 · Local</span>
       </div>
     </aside>
   );

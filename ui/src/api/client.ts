@@ -132,6 +132,11 @@ export const api = {
   },
   pairings: {
     list: () => request<{ pairings: PairingRecord[] }>('/pairings'),
+    register: (devicePublicKey: string, displayName: string) =>
+      request<{ status: string; device_public_key: string }>('/pairings', {
+        method: 'POST',
+        body: JSON.stringify({ device_public_key: devicePublicKey, display_name: displayName }),
+      }),
     approve: (key: string) =>
       request(`/pairings/${encodeURIComponent(key)}/approve`, { method: 'POST', body: '{}' }),
     revoke: (key: string) =>

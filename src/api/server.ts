@@ -20,6 +20,7 @@ import { registerBudgetRoutes } from './routes/budgets.js';
 import { registerVaultRoutes } from './routes/vault.js';
 import { registerDoctorRoutes } from './routes/doctor.js';
 import { registerPairingRoutes } from './routes/pairings.js';
+import { registerPairingMiddleware } from './pairing-middleware.js';
 
 export interface ServerOptions {
   host?: string;
@@ -83,6 +84,9 @@ export async function createServer(opts: ServerOptions = {}) {
     );
     reply.header('Referrer-Policy', 'strict-origin-when-cross-origin');
   });
+
+  // Device pairing enforcement – runs before all routes
+  registerPairingMiddleware(fastify, db);
 
   // Routes under /v1
   const routeOpts = { db, config, paths };

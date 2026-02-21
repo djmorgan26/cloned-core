@@ -7,6 +7,7 @@ import { runPipeline } from '../../runtime/runner.js';
 import { researchPipeline } from '../../runtime/skills/researcher.js';
 import { builderPipeline } from '../../runtime/skills/builder.js';
 import { creatorPipeline } from '../../runtime/skills/creator.js';
+import { registerBuiltinTools } from '../../runtime/tools/index.js';
 
 const BUILT_IN_PIPELINES = {
   'pipeline.research.report': researchPipeline,
@@ -19,7 +20,8 @@ export function registerRunCommand(program: Command): void {
     .command('run <pipeline>')
     .description('Run a pipeline')
     .option('--dry-run', 'Simulate run without executing actions', false)
-    .option('--input <json>', 'JSON input for the pipeline')
+    .option('--input <json>', 'JSON input variables for the pipeline (e.g. \'{"topic":"AI safety"}\')')
+    .option('--topic <topic>', 'Shorthand: set the "topic" input variable')
     .action(async (pipelineId: string, opts) => {
       const paths = getClonedPaths();
 
@@ -41,8 +43,28 @@ export function registerRunCommand(program: Command): void {
       const db = openDb(paths.stateDb);
       const policy = loadPolicyPack(config.policy_pack);
 
+      // Register built-in tool handlers before running
+      registerBuiltinTools(config.policy_pack);
+
+      // Build runtime variables from CLI flags
+      let vars: Record<string, unknown> = {};
+      if (opts.input) {
+        try {
+          vars = JSON.parse(opts.input as string);
+        } catch {
+          console.error('Invalid JSON in --input. Example: --input \'{"topic":"AI safety"}\'');
+          process.exit(1);
+        }
+      }
+      if (opts.topic) {
+        vars['topic'] = opts.topic;
+      }
+
       console.log(`Running pipeline: ${pipeline.name}`);
       if (opts.dryRun) console.log('[DRY RUN] – no actions will be executed');
+      if (Object.keys(vars).length > 0) {
+        console.log('Variables:', JSON.stringify(vars));
+      }
 
       try {
         const result = await runPipeline(pipeline, {
@@ -52,6 +74,7 @@ export function registerRunCommand(program: Command): void {
           actor: 'cli',
           dryRun: opts.dryRun,
           cwd: process.cwd(),
+          vars,
         });
 
         console.log(`\nRun completed: ${result.status}`);
@@ -70,7 +93,7 @@ export function registerRunCommand(program: Command): void {
         }
 
         if (result.artifact_paths.length > 0) {
-          console.log('\nArtifacts:');
+          console.log('\nArtifacts saved:');
           result.artifact_paths.forEach((p) => console.log(`  ${p}`));
         }
       } catch (err) {

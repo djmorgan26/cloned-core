@@ -57,14 +57,33 @@
   },
   "jest": {
     "preset": "ts-jest/presets/default-esm",
-    "extensionsToTreatAsEsm": [".ts"],
+    "extensionsToTreatAsEsm": [
+      ".ts"
+    ],
     "testEnvironment": "node",
-    "testMatch": ["**/src/__tests__/**/*.test.ts"],
+    "testMatch": [
+      "**/src/__tests__/**/*.test.ts"
+    ],
     "moduleNameMapper": {
       "^(\\.{1,2}/.*)\\.js$": "$1"
     },
     "transform": {
-      "^.+\\.tsx?$": ["ts-jest", { "useESM": true, "isolatedModules": true, "diagnostics": { "ignoreCodes": [151002] } }]
+      "^.+\\.tsx?$": [
+        "ts-jest",
+        {
+          "useESM": true,
+          "isolatedModules": true,
+          "diagnostics": {
+            "ignoreCodes": [
+              151002
+            ]
+          }
+        }
+      ]
     }
+  },
+  "optionalDependencies": {
+    "@azure/identity": "^4.4.0",
+    "@azure/keyvault-secrets": "^4.9.0"
   }
 }
