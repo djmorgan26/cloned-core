@@ -2,23 +2,14 @@
 
 title = "cloned-gitleaks"
 
-[rules]
-
-[[rules.allowlist.files]]
-description = "Allow test/synthetic public keys"
-regex = '''TRUST/examples/.*\.json$'''
-
-[[rules.allowlist.files]]
-description = "Allow license and docs"
-regex = '''(LICENSE|README\.md|.*\.md)$'''
-
 [allowlist]
 description = "Generic allowlist for placeholder strings and test paths"
 paths = [
-  '''src/__tests__/.*\.test\.ts$'''
+  '''src/__tests__/.*\.test\.ts$''',
+  '''TRUST/examples/.*\.json$''',
+  '''(LICENSE|README\.md|.*\.md)$'''
 ]
 regexes = [
   '''ED25519:REDACTED''',
   '''REDACTED'''
 ]
-
