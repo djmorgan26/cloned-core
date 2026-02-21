@@ -18,6 +18,8 @@ export interface RunnerContext {
   actor: string;
   dryRun?: boolean;
   cwd?: string;
+  /** Runtime variables injected into pipeline step inputs via {{varName}} templates. */
+  vars?: Record<string, unknown>;
 }
 
 type ToolHandler = (input: Record<string, unknown>) => Promise<unknown>;
@@ -37,6 +39,53 @@ const TOOL_COSTS: Record<string, { category: string; amount: number }> = {
   'cloned.mcp.web.search@v1': { category: 'api_requests', amount: 1 },
 };
 
+/**
+ * Resolve {{varName}} and {{step.<id>.output}} template expressions in a value.
+ * Works recursively on strings, arrays, and plain objects.
+ */
+function resolveTemplate(
+  value: unknown,
+  vars: Record<string, unknown>,
+  stepOutputs: Map<string, unknown>,
+): unknown {
+  if (typeof value === 'string') {
+    return value.replace(/\{\{([^}]+)\}\}/g, (_match, expr: string) => {
+      const trimmed = expr.trim();
+
+      // {{step.<id>.output}} – previous step output
+      const stepMatch = /^step\.([^.]+)\.output$/.exec(trimmed);
+      if (stepMatch) {
+        const stepId = stepMatch[1]!;
+        const output = stepOutputs.get(stepId);
+        if (output === undefined) return _match; // Leave unresolved
+        return typeof output === 'string' ? output : JSON.stringify(output);
+      }
+
+      // {{varName}} – runtime variable
+      if (trimmed in vars) {
+        const v = vars[trimmed];
+        return typeof v === 'string' ? v : JSON.stringify(v);
+      }
+
+      return _match; // Unresolvable – keep as-is
+    });
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => resolveTemplate(item, vars, stepOutputs));
+  }
+
+  if (value !== null && typeof value === 'object') {
+    const result: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      result[k] = resolveTemplate(v, vars, stepOutputs);
+    }
+    return result;
+  }
+
+  return value;
+}
+
 export async function runPipeline(
   pipeline: Pipeline,
   ctx: RunnerContext,
@@ -44,6 +93,7 @@ export async function runPipeline(
   const runId = generateId();
   const startedAt = new Date().toISOString();
   const paths = getClonedPaths(ctx.cwd);
+  const vars = ctx.vars ?? {};
 
   // Insert run record
   ctx.db.prepare(`
@@ -54,13 +104,28 @@ export async function runPipeline(
   logger.info('Run started', { run_id: runId, pipeline: pipeline.id, dry_run: ctx.dryRun });
 
   const stepResults: StepResult[] = [];
+  const stepOutputs = new Map<string, unknown>();
   let runStatus: RunResult['status'] = 'succeeded';
+  const artifactPaths: string[] = [];
 
   for (const step of pipeline.steps) {
-    const result = await executeStep(step, ctx, paths.auditLog);
+    // Resolve template variables in step input before execution
+    const resolvedInput = resolveTemplate(step.input, vars, stepOutputs) as Record<string, unknown>;
+    const resolvedStep: SkillStep = { ...step, input: resolvedInput };
+
+    const result = await executeStep(resolvedStep, ctx, paths.auditLog);
     stepResults.push(result);
 
-    if (result.outcome === 'failure') {
+    if (result.outcome === 'success') {
+      // Store output for downstream template resolution
+      stepOutputs.set(step.id, result.output);
+
+      // Collect artifact paths if this was an artifact-save step
+      if (step.tool_id === 'cloned.internal.artifact.save@v1' && result.output) {
+        const out = result.output as { path?: string };
+        if (out.path) artifactPaths.push(out.path);
+      }
+    } else if (result.outcome === 'failure') {
       runStatus = 'failed';
       break;
     }
@@ -77,7 +142,7 @@ export async function runPipeline(
     pipeline_id: pipeline.id,
     status: runStatus,
     steps: stepResults,
-    artifact_paths: [],
+    artifact_paths: artifactPaths,
     started_at: startedAt,
     ended_at: endedAt,
   };
@@ -90,7 +155,6 @@ async function executeStep(
 ): Promise<StepResult> {
   logger.debug('Executing step', { step_id: step.id, tool: step.tool_id });
 
-  // Closure to reduce repetition in audit calls
   const audit = (
     policy_decision: PolicyDecision,
     outcome: AuditOutcome,

@@ -9,9 +9,11 @@ interface RouteOpts {
   paths: ClonedPaths;
 }
 
-export async function registerDoctorRoutes(fastify: FastifyInstance, _opts: RouteOpts) {
+export async function registerDoctorRoutes(fastify: FastifyInstance, opts: RouteOpts) {
   fastify.get('/v1/doctor', async () => {
-    const report = runDoctorChecks();
+    // Resolve cwd from the workspace paths root so checks find the right files
+    const cwd = opts.paths.root.replace(/\/\.cloned$/, '');
+    const report = runDoctorChecks(cwd);
     return report;
   });
 }

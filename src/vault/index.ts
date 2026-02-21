@@ -1,13 +1,19 @@
 import type { VaultProvider } from './types.js';
+import { FileVaultProvider } from './file-provider.js';
 import { DevVaultProvider } from './dev-provider.js';
 
 export type { VaultProvider };
 
 let _activeProvider: VaultProvider | null = null;
 
-export function getVaultProvider(): VaultProvider {
+/**
+ * Get the active vault provider, defaulting to a file-backed dev vault.
+ * The file vault persists across process restarts (unlike the in-memory DevVaultProvider).
+ */
+export function getVaultProvider(vaultFilePath?: string): VaultProvider {
   if (!_activeProvider) {
-    _activeProvider = new DevVaultProvider();
+    const path = vaultFilePath ?? `${process.cwd()}/.cloned/vault.dev.json`;
+    _activeProvider = new FileVaultProvider(path);
   }
   return _activeProvider;
 }
@@ -16,14 +22,22 @@ export function setVaultProvider(provider: VaultProvider): void {
   _activeProvider = provider;
 }
 
-export async function initVaultProvider(providerName: string): Promise<VaultProvider> {
+export async function initVaultProvider(
+  providerName: string,
+  opts?: { filePath?: string },
+): Promise<VaultProvider> {
   switch (providerName) {
     case 'dev':
+      // In-memory only – suitable for tests where disk persistence would be harmful
       _activeProvider = new DevVaultProvider();
       break;
+    case 'file':
+      _activeProvider = new FileVaultProvider(
+        opts?.filePath ?? `${process.cwd()}/.cloned/vault.dev.json`,
+      );
+      break;
     case 'azure':
-      // Azure Key Vault provider – requires @azure/keyvault-secrets and @azure/identity
-      // Dynamically import to avoid hard dependency for users who don't need it
+      // Azure Key Vault – requires @azure/keyvault-secrets and @azure/identity
       try {
         const { AzureKeyVaultProvider } = await import('./azure-provider.js');
         _activeProvider = new AzureKeyVaultProvider();

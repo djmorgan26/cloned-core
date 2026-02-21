@@ -19,7 +19,29 @@ allowlists:
   tools: []
   capabilities: []
   egress_domains: ["localhost", "127.0.0.1"]
-  egress_by_connector: {}
-  egress_by_tool: {}
+  egress_by_connector:
+    connector.github.app:
+      - "api.github.com"
+      - "github.com"
+    connector.youtube.oauth:
+      - "www.googleapis.com"
+      - "oauth2.googleapis.com"
+      - "accounts.google.com"
+    connector.web.search:
+      - "api.duckduckgo.com"
+      - "html.duckduckgo.com"
+  egress_by_tool:
+    cloned.mcp.web.search@v1:
+      - "api.duckduckgo.com"
+      - "html.duckduckgo.com"
+    cloned.internal.synthesis@v1:
+      - "api.openai.com"
+      - "api.anthropic.com"
+    cloned.mcp.github.issue.create@v1:
+      - "api.github.com"
+    cloned.mcp.github.pr.create@v1:
+      - "api.github.com"
+    cloned.mcp.youtube.video.upload@v1:
+      - "www.googleapis.com"
 ui:
   allowed_origins: ["http://localhost", "http://127.0.0.1", "http://[::1]"]

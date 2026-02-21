@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { load } from 'js-yaml';
 import { getClonedPaths } from '../workspace/paths.js';
@@ -43,24 +43,14 @@ function commandExists(cmd: string): boolean {
   }
 }
 
-function getNodeVersion(): string | null {
-  try {
-    const v = process.version; // e.g. "v20.11.0"
-    return v.replace(/^v/, '');
-  } catch {
-    return null;
-  }
-}
-
 export function runDoctorChecks(cwd?: string): DoctorReport {
   const paths = getClonedPaths(cwd);
   const checks: DoctorCheck[] = [];
 
-  // --- Environment checks ---
+  // ── Environment ──────────────────────────────────────────────────────────
   checks.push(
     check('Node.js >= 20', () => {
-      const v = getNodeVersion();
-      if (!v) return { status: 'fail', message: 'Could not determine Node.js version' };
+      const v = process.version.replace(/^v/, '');
       const major = parseInt(v.split('.')[0] ?? '0', 10);
       if (major >= 20) return { status: 'pass', message: `Node.js ${v}` };
       return {
@@ -78,16 +68,25 @@ export function runDoctorChecks(cwd?: string): DoctorReport {
     }),
   );
 
-  // --- Workspace checks ---
+  // ── Workspace ─────────────────────────────────────────────────────────────
   checks.push(
     check('Workspace initialized (.cloned/)', () => {
-      if (existsSync(paths.root))
-        return { status: 'pass', message: `.cloned/ found at ${paths.root}` };
-      return {
-        status: 'fail',
-        message: 'Workspace not initialized',
-        fix: 'Run: cloned init',
-      };
+      if (!existsSync(paths.root)) {
+        return { status: 'fail', message: 'Workspace not initialized', fix: 'Run: cloned init' };
+      }
+      try {
+        const mode = statSync(paths.root).mode & 0o777;
+        if (mode !== 0o700) {
+          return {
+            status: 'warn',
+            message: `.cloned/ permissions are ${mode.toString(8)} (expected 700)`,
+            fix: `Run: chmod 700 "${paths.root}"`,
+          };
+        }
+      } catch {
+        // Stat failed – still pass the existence check
+      }
+      return { status: 'pass', message: `.cloned/ found at ${paths.root}` };
     }),
   );
 
@@ -101,9 +100,40 @@ export function runDoctorChecks(cwd?: string): DoctorReport {
 
   checks.push(
     check('State DB present', () => {
-      if (existsSync(paths.stateDb))
-        return { status: 'pass', message: 'state.db present' };
-      return { status: 'fail', message: 'state.db missing', fix: 'Run: cloned init' };
+      if (!existsSync(paths.stateDb)) {
+        return { status: 'fail', message: 'state.db missing', fix: 'Run: cloned init' };
+      }
+      return { status: 'pass', message: 'state.db present' };
+    }),
+  );
+
+  // ── SQLite WAL mode ───────────────────────────────────────────────────────
+  checks.push(
+    check('SQLite WAL mode enabled', () => {
+      if (!existsSync(paths.stateDb)) {
+        return { status: 'warn', message: 'state.db not found – skipping WAL check' };
+      }
+      try {
+        // Dynamically require better-sqlite3 (sync require avoids ESM async restrictions)
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const BetterSQLite3 = require('better-sqlite3') as { new(path: string, opts?: { readonly?: boolean }): { prepare: (sql: string) => { get: () => unknown }; close: () => void } };
+        const db = new BetterSQLite3(paths.stateDb, { readonly: true });
+        const row = db.prepare(`PRAGMA journal_mode`).get() as { journal_mode: string } | undefined;
+        db.close();
+        if (row?.journal_mode === 'wal') {
+          return { status: 'pass', message: 'SQLite WAL mode active (crash-safe)' };
+        }
+        return {
+          status: 'warn',
+          message: `SQLite journal_mode=${row?.journal_mode ?? 'unknown'} (expected wal)`,
+          fix: 'Reinitialize workspace: cloned init',
+        };
+      } catch (err) {
+        return {
+          status: 'warn',
+          message: `Could not check WAL mode: ${(err as Error).message}`,
+        };
+      }
     }),
   );
 
@@ -138,7 +168,49 @@ export function runDoctorChecks(cwd?: string): DoctorReport {
     }),
   );
 
-  // --- Security checks ---
+  // ── Vault ─────────────────────────────────────────────────────────────────
+  checks.push(
+    check('Vault reachable', () => {
+      const vaultFile = `${paths.root}/vault.dev.json`;
+      if (existsSync(vaultFile)) {
+        return { status: 'pass', message: `Dev vault present at ${vaultFile}` };
+      }
+      return {
+        status: 'warn',
+        message: 'Dev vault file not found (will be created on first secret write)',
+        fix: 'Run: cloned vault set <key> <value>',
+      };
+    }),
+  );
+
+  checks.push(
+    check('LLM API key configured', () => {
+      const envKey = process.env['LLM_API_KEY'] ?? process.env['OPENAI_API_KEY'];
+      if (envKey) {
+        return { status: 'pass', message: 'LLM API key found in environment' };
+      }
+      const vaultFile = `${paths.root}/vault.dev.json`;
+      if (existsSync(vaultFile)) {
+        try {
+          const store = JSON.parse(readFileSync(vaultFile, 'utf8')) as {
+            secrets?: Record<string, unknown>;
+          };
+          if (store.secrets?.['llm.api_key']) {
+            return { status: 'pass', message: 'LLM API key found in vault' };
+          }
+        } catch {
+          // Ignore parse error
+        }
+      }
+      return {
+        status: 'warn',
+        message: 'LLM API key not configured (required for synthesis)',
+        fix: 'Run: cloned vault set llm.api_key <your-key>  or set LLM_API_KEY env var',
+      };
+    }),
+  );
+
+  // ── Security ──────────────────────────────────────────────────────────────
   checks.push(
     check('gitleaks available', () => {
       if (commandExists('gitleaks'))
@@ -154,8 +226,7 @@ export function runDoctorChecks(cwd?: string): DoctorReport {
   checks.push(
     check('API bind is loopback', () => {
       const host = process.env['CLONED_API_HOST'] ?? '127.0.0.1';
-      const isLoopback =
-        host === '127.0.0.1' || host === 'localhost' || host === '::1';
+      const isLoopback = host === '127.0.0.1' || host === 'localhost' || host === '::1';
       if (isLoopback) return { status: 'pass', message: `API binds to ${host} (loopback)` };
       return {
         status: 'warn',
@@ -165,7 +236,7 @@ export function runDoctorChecks(cwd?: string): DoctorReport {
     }),
   );
 
-  // --- Connector checks ---
+  // ── Connector registry ───────────────────────────────────────────────────
   checks.push(
     check('Registry parses cleanly', () => {
       if (!existsSync(paths.registry)) {
@@ -184,13 +255,16 @@ export function runDoctorChecks(cwd?: string): DoctorReport {
     }),
   );
 
-  // Determine overall status
+  // Determine overall
   const hasFailure = checks.some((c) => c.status === 'fail');
   const hasWarning = checks.some((c) => c.status === 'warn');
   const overall: CheckStatus = hasFailure ? 'fail' : hasWarning ? 'warn' : 'pass';
 
   const passCount = checks.filter((c) => c.status === 'pass').length;
-  const summary = `${passCount}/${checks.length} checks passed${hasFailure ? ' – FAILURES detected' : ''}${hasWarning && !hasFailure ? ' – warnings present' : ''}`;
+  const summary =
+    `${passCount}/${checks.length} checks passed` +
+    (hasFailure ? ' – FAILURES detected' : '') +
+    (hasWarning && !hasFailure ? ' – warnings present' : '');
 
   return { overall, checks, summary };
 }

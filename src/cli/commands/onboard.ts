@@ -1,9 +1,10 @@
 import type { Command } from 'commander';
-import { writeFileSync } from 'node:fs';
+import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadBlueprints, selectBlueprint, generatePlanOfRecord } from '../../blueprint/engine.js';
 import { getClonedPaths } from '../../workspace/paths.js';
 import { readWorkspaceConfig } from '../../workspace/config.js';
+import { getVaultProvider } from '../../vault/index.js';
 
 export function registerOnboardCommand(program: Command): void {
   program
@@ -33,20 +34,23 @@ export function registerOnboardCommand(program: Command): void {
       console.log('\nCloned Onboarding\n');
       console.log('Available blueprints:');
       blueprints.forEach((bp, i) => {
-        console.log(`  ${i + 1}. ${bp.id} – ${bp.goals.join(', ')}`);
+        console.log(`  ${i + 1}. [${bp.id}] ${bp.title}`);
+        console.log(`     ${bp.description}`);
       });
+      console.log();
 
       let goal = opts.goal as string | undefined;
 
       if (!goal && !opts.blueprint) {
-        // Interactive mode using inquirer
         try {
           const { default: inquirer } = await import('inquirer');
           const answers = await inquirer.prompt([
             {
               type: 'input',
               name: 'goal',
-              message: 'What is your primary goal? (e.g., "create YouTube content", "build a GitHub app", "research a topic"):',
+              message:
+                'What is your primary goal? ' +
+                '(e.g. "research a topic", "create YouTube content", "build a GitHub app"):',
               validate: (v: string) => v.trim().length > 0 || 'Please enter a goal',
             },
           ]);
@@ -63,6 +67,7 @@ export function registerOnboardCommand(program: Command): void {
         selectedBlueprint = blueprints.find((bp) => bp.id === opts.blueprint) ?? null;
         if (!selectedBlueprint) {
           console.error(`Blueprint not found: ${opts.blueprint}`);
+          console.error('Available IDs:', blueprints.map((b) => b.id).join(', '));
           process.exit(1);
         }
       } else {
@@ -74,8 +79,7 @@ export function registerOnboardCommand(program: Command): void {
         process.exit(1);
       }
 
-      console.log(`\nSelected blueprint: ${selectedBlueprint.id}`);
-      console.log(`Goals: ${selectedBlueprint.goals.join(', ')}`);
+      console.log(`\nSelected blueprint: ${selectedBlueprint.title} [${selectedBlueprint.id}]`);
 
       const plan = generatePlanOfRecord(selectedBlueprint, config.workspace_id);
 
@@ -83,24 +87,57 @@ export function registerOnboardCommand(program: Command): void {
       console.log(plan.markdown);
       console.log('─'.repeat(60));
 
+      // Check connector status from vault
+      const vault = getVaultProvider(`${paths.root}/vault.dev.json`);
+      console.log('\nConnector status:');
+      for (const { connector } of plan.connectors_needed) {
+        const isConnected = await checkConnectorConnected(connector, vault);
+        const icon = isConnected ? '✓' : '✗';
+        const hint = isConnected
+          ? 'connected'
+          : `run: cloned connect ${connector.replace('connector.', '')}`;
+        console.log(`  ${icon} ${connector}: ${hint}`);
+      }
+
       if (!opts.dryRun) {
-        const planPath = join(paths.root, 'plan-of-record.md');
+        const plansDir = join(paths.root, 'plans');
+        if (!existsSync(plansDir)) mkdirSync(plansDir, { recursive: true, mode: 0o700 });
+        const planPath = join(plansDir, `${selectedBlueprint.id}.md`);
         writeFileSync(planPath, plan.markdown, 'utf8');
         console.log(`\nPlan of Record saved to: ${planPath}`);
       } else {
         console.log('\n[DRY RUN] Plan not saved.');
       }
 
-      console.log('\nRequired manual steps:');
-      plan.manual_steps.forEach((step, i) => {
-        console.log(`  ${i + 1}. ${step}`);
-      });
-
-      if (plan.connectors_needed.length > 0) {
-        console.log('\nConnectors to install:');
-        plan.connectors_needed.forEach(({ connector }) => {
-          console.log(`  cloned connect ${connector.replace('connector.', '')}`);
+      if (plan.manual_steps.length > 0) {
+        console.log('\nRequired manual steps:');
+        plan.manual_steps.forEach((step, i) => {
+          console.log(`  ${i + 1}. ${step}`);
         });
       }
+
+      if (selectedBlueprint.first_run_pipeline) {
+        console.log(`\nWhen ready, run: cloned run ${selectedBlueprint.first_run_pipeline}`);
+      }
     });
+}
+
+/**
+ * A connector is "connected" if its primary vault secret exists.
+ */
+async function checkConnectorConnected(
+  connectorId: string,
+  vault: ReturnType<typeof getVaultProvider>,
+): Promise<boolean> {
+  const secretKeys: Record<string, string> = {
+    'connector.github.app': 'github.oauth.access_token',
+    'connector.youtube.oauth': 'youtube.oauth.access_token',
+    'connector.web.search': '', // no auth required
+    'connector.slack.bot': 'slack.bot.token',
+  };
+  const key = secretKeys[connectorId];
+  if (key === '') return true; // No auth needed
+  if (!key) return false;
+  const val = await vault.getSecret(key);
+  return val !== null;
 }
