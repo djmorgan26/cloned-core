@@ -1,0 +1,14 @@
+id: blueprint.creator
+version: 1.0.0
+goals:
+  - Generate YouTube-ready package (script, assets)
+required_capabilities:
+  - cap.content.video_packaging
+  - cap.identity.vault_secrets
+  - cap.comm.slack_posting
+preferred_connectors:
+  - connector.youtube.oauth
+  - connector.slack.oauth
+policy_pack: policy.personal.default
+first_run_pipeline: pipeline.creator.package
+

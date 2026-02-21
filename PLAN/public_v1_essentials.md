@@ -24,6 +24,7 @@ This list defines “essentials” for a public release. None are deferred.
 - Command Center UI (local) with:
   - overview, connectors, runs, approvals, budgets, secrets health
 - CLI parity for all critical actions
+- UI security: device pairing required, strict CSP, loopback bind by default
 
 ## First-value workflows
 At least 3 blueprints:

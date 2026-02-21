@@ -1,0 +1,30 @@
+pack_id: policy.shared.default
+tier: shared
+version: 1.0.0
+budgets:
+  api_requests:
+    period: month
+    cap: 25000
+  content_publish:
+    period: month
+    cap: 20
+approvals:
+  rules:
+    - match: { risk_level: high }
+      requires_approval: true
+      approvers: ["workspace.admins"]
+    - match: { cost_category: content_publish }
+      requires_approval: true
+      approvers: ["workspace.admins"]
+allowlists:
+  publishers: ["cloned.official"]
+  tools: []
+  capabilities: []
+  egress_domains: ["localhost", "127.0.0.1"]
+  egress_by_connector: {}
+  egress_by_tool: {}
+denylists:
+  tools: []
+  capabilities: []
+ui:
+  allowed_origins: ["http://localhost", "http://127.0.0.1", "http://[::1]"]

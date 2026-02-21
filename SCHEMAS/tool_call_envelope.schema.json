@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cloned.dev/schemas/tool_call_envelope.schema.json",
+  "title": "Tool Call Envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "correlation_id": {"type": "string"},
+    "tool_id": {"type": "string"},
+    "version": {"type": "string"},
+    "schema_id": {"type": "string"},
+    "inputs": {"type": "object"},
+    "redaction_classes": {"type": "array", "items": {"type": "string"}},
+    "cost_estimate": {"type": "object", "additionalProperties": {"type": "number"}},
+    "requires_approval": {"type": "boolean"},
+    "dry_run": {"type": "boolean"}
+  },
+  "required": ["correlation_id", "tool_id", "version", "schema_id", "inputs", "dry_run"]
+}
+

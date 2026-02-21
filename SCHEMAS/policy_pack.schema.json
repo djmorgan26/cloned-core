@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cloned.dev/schemas/policy_pack.schema.json",
+  "title": "Cloned Policy Pack",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "pack_id": {"type": "string"},
+    "tier": {"enum": ["personal", "shared", "enterprise"]},
+    "version": {"type": "string"},
+    "budgets": {
+      "type": "object",
+      "patternProperties": {
+        ".+": {
+          "type": "object",
+          "properties": {
+            "period": {"enum": ["hour", "day", "week", "month"]},
+            "cap": {"type": "number", "minimum": 0}
+          },
+          "required": ["period", "cap"],
+          "additionalProperties": false
+        }
+      }
+    },
+    "approvals": {
+      "type": "object",
+      "properties": {
+        "rules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "match": {
+                "type": "object",
+                "properties": {
+                  "tool_id": {"type": "string"},
+                  "capability": {"type": "string"},
+                  "risk_level": {"enum": ["low", "medium", "high"]},
+                  "cost_category": {"type": "string"}
+                },
+                "additionalProperties": false
+              },
+              "requires_approval": {"type": "boolean"},
+              "approvers": {"type": "array", "items": {"type": "string"}}
+            },
+            "required": ["match", "requires_approval"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "allowlists": {
+      "type": "object",
+      "properties": {
+        "tools": {"type": "array", "items": {"type": "string"}},
+        "capabilities": {"type": "array", "items": {"type": "string"}},
+        "publishers": {"type": "array", "items": {"type": "string"}},
+        "egress_domains": {"type": "array", "items": {"type": "string"}},
+        "egress_by_connector": {
+          "type": "object",
+          "additionalProperties": {"type": "array", "items": {"type": "string"}}
+        },
+        "egress_by_tool": {
+          "type": "object",
+          "additionalProperties": {"type": "array", "items": {"type": "string"}}
+        }
+      },
+      "additionalProperties": false
+    },
+    "denylists": {
+      "type": "object",
+      "properties": {
+        "tools": {"type": "array", "items": {"type": "string"}},
+        "capabilities": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "ui": {
+      "type": "object",
+      "properties": {
+        "allowed_origins": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": ["pack_id", "tier", "version", "budgets", "approvals"]
+}

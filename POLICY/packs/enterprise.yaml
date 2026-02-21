@@ -1,0 +1,33 @@
+pack_id: policy.enterprise.default
+tier: enterprise
+version: 1.0.0
+budgets:
+  api_requests:
+    period: month
+    cap: 100000
+  content_publish:
+    period: month
+    cap: 100
+approvals:
+  rules:
+    - match: { risk_level: medium }
+      requires_approval: true
+      approvers: ["security", "engineering"]
+    - match: { risk_level: high }
+      requires_approval: true
+      approvers: ["security", "legal"]
+    - match: { cost_category: content_publish }
+      requires_approval: true
+      approvers: ["product", "marketing"]
+allowlists:
+  publishers: ["cloned.official", "enterprise.trusted"]
+  tools: []
+  capabilities: []
+  egress_domains: []
+  egress_by_connector: {}
+  egress_by_tool: {}
+denylists:
+  tools: []
+  capabilities: []
+ui:
+  allowed_origins: ["https://intranet.example.com"]

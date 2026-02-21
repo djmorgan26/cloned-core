@@ -7,6 +7,8 @@ Deliverables:
 - Repo structure established (core/runtime/connectors/ui/knowledge)
 - CI: lint + tests + secret scanning + dependency pinning checks
 - Versioning conventions and schema registry file formats agreed
+ - Stack choices locked (see ARCHITECTURE/stack_choices.md)
+ - Repo plan published (see REPOS/repo_plan.md)
 
 Exit criteria:
 - `PLAN/v1_acceptance_tests.md` section A passes
@@ -18,6 +20,8 @@ Deliverables:
 - Budgets model + enforcement hooks
 - Approval queue model (append-only)
 - Audit event model + redaction rules
+- Schemas added under `SCHEMAS/` (workspace, policy, registry, audit)
+- Security posture baseline: loopback bind default, device pairing for UI, auth rate limiting
 
 Exit criteria:
 - Acceptance tests B and C pass (workspace creation, policy application, approvals, audit)
@@ -31,6 +35,7 @@ Deliverables:
   - selects blueprint(s)
   - produces Plan of Record
   - executes allowed setup steps
+ - Initial blueprints added under `BLUEPRINTS/`
 
 Exit criteria:
 - Acceptance tests D and E pass (capability reasoning, blueprint selection, onboarding plan)
@@ -40,6 +45,7 @@ Deliverables:
 - Vault connector (MCP) with schemas and redaction rules
 - Local dev vault provider (explicit dev-only) for contributors
 - Secret classes and storage rules enforced
+ - Vault provider contract documented
 
 Exit criteria:
 - Acceptance tests F pass (secrets stored and retrieved without leaks; vault unreachable behavior)
@@ -49,6 +55,9 @@ Deliverables:
 - Local connector registry (`.cloned/registry.yaml`) and capability declarations
 - Connector installer that verifies signatures (trust model)
 - Runtime can load connectors, list tools, and enforce allowlists
+- MCP connector contract documented (CONNECTORS/mcp_contract.md)
+- Trust store structure defined (TRUST/structure.md)
+- Egress allowlists enforced per policy; connectors declare outbound hosts
 
 Exit criteria:
 - Acceptance tests G and H pass (install/verify/enable/disable connectors; schema validation)
@@ -60,6 +69,7 @@ Deliverables:
 - GitHub connector (MCP) using GitHub App installation tokens
 - YouTube connector (OAuth installed-app) with assist-mode default
 - Tool schemas versioned and pinned
+ - GitHub permissions documented; YouTube scopes documented
 
 Exit criteria:
 - Acceptance tests I and J pass (GitHub actions; YouTube auth and package/publish gating)
@@ -72,6 +82,7 @@ Deliverables:
   2) Builder (repo/app scaffolding plan + security basics)
   3) Creator (YouTube package generation)
 - Pipeline engine that produces artifacts and manifests
+ - Artifact manifest schema added
 
 Exit criteria:
 - Acceptance tests K and L pass (skills run, artifacts created with provenance, policy enforced)
@@ -85,6 +96,7 @@ Deliverables:
   - Connectors view (installed, versions, signatures, capabilities)
   - Secrets status view (no values shown; just health and references)
 - UI must be professional, intuitive, “hyperscaler-like” (see UX/command_center.md)
+ - Local API OpenAPI spec stubbed (API/openapi.yaml)
 
 Exit criteria:
 - Acceptance tests M pass (UI shows real state; no secrets; controls enforce approvals)

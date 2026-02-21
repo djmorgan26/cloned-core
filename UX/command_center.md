@@ -57,3 +57,10 @@ Left nav:
 - All destructive actions require confirmation + approval record
 - UI must work locally; hosted later
 - UI must call local API endpoints exposed by core (OpenAPI spec recommended)
+
+## Security requirements (updated)
+- Device pairing required for UI sessions (signed device identity + approval)
+- Strict CSP, no inline scripts; X-Frame-Options DENY; no secrets in responses
+- Allowed origins must match loopback or explicit allowlist in policy pack
+- Loopback bind by default; non-loopback binds require explicit auth and policy gate
+- Auth failures are rate limited and return 429 with Retry-After

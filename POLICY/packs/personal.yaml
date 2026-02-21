@@ -1,0 +1,25 @@
+pack_id: policy.personal.default
+tier: personal
+version: 1.0.0
+budgets:
+  api_requests:
+    period: month
+    cap: 10000
+  content_publish:
+    period: month
+    cap: 5
+approvals:
+  rules:
+    - match: { risk_level: high }
+      requires_approval: true
+    - match: { cost_category: content_publish }
+      requires_approval: true
+allowlists:
+  publishers: ["cloned.official"]
+  tools: []
+  capabilities: []
+  egress_domains: ["localhost", "127.0.0.1"]
+  egress_by_connector: {}
+  egress_by_tool: {}
+ui:
+  allowed_origins: ["http://localhost", "http://127.0.0.1", "http://[::1]"]

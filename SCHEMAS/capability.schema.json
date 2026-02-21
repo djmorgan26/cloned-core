@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cloned.dev/schemas/capability.schema.json",
+  "title": "Capability",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {"type": "string"},
+    "description": {"type": "string"},
+    "risk_level": {"enum": ["low", "medium", "high"]},
+    "cost_model": {"type": "string"},
+    "required_approvals": {"type": "array", "items": {"type": "string"}},
+    "prerequisites": {"type": "array", "items": {"type": "string"}}
+  },
+  "required": ["id", "description", "risk_level"]
+}
+

@@ -1,0 +1,13 @@
+id: blueprint.builder
+version: 1.0.0
+goals:
+  - Scaffold repo/app with security basics
+required_capabilities:
+  - cap.dev.repo_management
+  - cap.identity.vault_secrets
+  - cap.dev.ci_setup
+preferred_connectors:
+  - connector.github.app
+policy_pack: policy.shared.default
+first_run_pipeline: pipeline.builder.scaffold
+

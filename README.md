@@ -22,3 +22,12 @@ Start here:
 - `MARKETPLACE/signing_trust_model.md`
 - `UX/command_center.md`
 - `HANDOFF/spec_to_implement.md`
+- `ARCHITECTURE/stack_choices.md`
+- `REPOS/repo_plan.md`
+- `SCHEMAS/` (workspace, policy, registry, audit, blueprint, artifact manifest)
+- `API/openapi.yaml`
+ - `SECURITY/hardening.md`
+ - `STATE/sqlite_schema.sql`
+ - `RUNTIME/egress_matching.md`
+ - `SECURITY/csrf.md` and `SECURITY/headers.md`
+ - `VISION/roadmap.md` and `BRAND/brand.md`

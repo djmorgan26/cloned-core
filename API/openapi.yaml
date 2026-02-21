@@ -1,0 +1,138 @@
+openapi: 3.1.0
+info:
+  title: Cloned Local API
+  version: 0.1.0
+servers:
+  - url: http://127.0.0.1:7800/v1
+paths:
+  /workspace:
+    get:
+      summary: Get workspace status
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  workspace_id: { type: string }
+                  type: { type: string }
+                  policy_pack: { type: string }
+                  vault_provider: { type: string }
+        '401': { description: Unauthorized }
+        '429': { description: Too Many Requests }
+  /connectors:
+    get:
+      summary: List installed connectors
+      responses:
+        '200':
+          description: OK
+        '401': { description: Unauthorized }
+        '429': { description: Too Many Requests }
+    post:
+      summary: Install connector (signature verified)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                package_path: { type: string }
+                verify: { type: boolean }
+                dry_run: { type: boolean }
+      responses:
+        '200':
+          description: OK
+  /approvals:
+    get:
+      summary: List pending and decided approvals
+      responses:
+        '200': { description: OK }
+        '401': { description: Unauthorized }
+        '429': { description: Too Many Requests }
+    post:
+      summary: Decide an approval request
+      responses:
+        '200': { description: OK }
+        '401': { description: Unauthorized }
+        '429': { description: Too Many Requests }
+  /runs:
+    get:
+      summary: List runs
+      responses:
+        '200': { description: OK }
+        '401': { description: Unauthorized }
+        '429': { description: Too Many Requests }
+    post:
+      summary: Start a pipeline run
+      responses:
+        '202': { description: Accepted }
+        '401': { description: Unauthorized }
+        '429': { description: Too Many Requests }
+  /budgets:
+    get:
+      summary: Get budget status
+      responses:
+        '200': { description: OK }
+        '401': { description: Unauthorized }
+        '429': { description: Too Many Requests }
+  /vault/status:
+    get:
+      summary: Get vault provider status (no values)
+      responses:
+        '200': { description: OK }
+        '401': { description: Unauthorized }
+        '429': { description: Too Many Requests }
+  /registry:
+    get:
+      summary: Get local connector registry
+      responses:
+        '200': { description: OK }
+        '401': { description: Unauthorized }
+        '429': { description: Too Many Requests }
+  /doctor:
+    get:
+      summary: Run diagnostics (read-only)
+      responses:
+        '200': { description: OK }
+        '429': { description: Too Many Requests }
+
+  /pairings:
+    get:
+      summary: List paired devices
+      responses:
+        '200': { description: OK }
+        '401': { description: Unauthorized }
+        '429': { description: Too Many Requests }
+    post:
+      summary: Create pairing request (device identity)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                device_public_key: { type: string }
+                display_name: { type: string }
+              required: [device_public_key]
+      responses:
+        '202': { description: Accepted }
+        '400': { description: Bad Request }
+        '401': { description: Unauthorized }
+        '429': { description: Too Many Requests }
+  /pairings/{request_id}/approve:
+    post:
+      summary: Approve a pending pairing request
+      parameters:
+        - in: path
+          name: request_id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: OK }
+        '404': { description: Not Found }
+        '401': { description: Unauthorized }
+        '429': { description: Too Many Requests }

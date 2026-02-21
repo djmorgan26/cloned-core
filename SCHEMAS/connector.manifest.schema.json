@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cloned.dev/schemas/connector.manifest.schema.json",
+  "title": "Connector Package Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {"type": "string"},
+    "version": {"type": "string"},
+    "publisher_id": {"type": "string"},
+    "files": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "hashes": {
+      "type": "object",
+      "additionalProperties": {"type": "string"}
+    },
+    "tools": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string"},
+          "version": {"type": "string"},
+          "schema_id": {"type": "string"},
+          "capability": {"type": "string"},
+          "permissions_required": {"type": "array", "items": {"type": "string"}},
+          "cost_metadata": {"type": "object"},
+          "redaction_rules": {"type": "array", "items": {"type": "string"}},
+          "egress_hosts": {"type": "array", "items": {"type": "string"}}
+        },
+        "required": ["id", "version", "schema_id"]
+      }
+    },
+    "egress_hosts": {"type": "array", "items": {"type": "string"}},
+    "provides_capabilities": {"type": "array", "items": {"type": "string"}},
+    "requires_capabilities": {"type": "array", "items": {"type": "string"}}
+  },
+  "required": ["id", "version", "publisher_id", "files", "hashes", "tools"]
+}

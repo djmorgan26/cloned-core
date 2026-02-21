@@ -1,0 +1,14 @@
+id: blueprint.researcher
+version: 1.0.0
+goals:
+  - Produce deep research report with citations
+required_capabilities:
+  - cap.research.web_search
+  - cap.identity.vault_secrets
+  - cap.content.citation_management
+preferred_connectors:
+  - connector.websearch
+  - connector.citations
+policy_pack: policy.personal.default
+first_run_pipeline: pipeline.research.report
+

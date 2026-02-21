@@ -1,0 +1,21 @@
+# Gitleaks configuration for Cloned (no secrets in git)
+
+title = "cloned-gitleaks"
+
+[rules]
+
+[[rules.allowlist.files]]
+description = "Allow test/synthetic public keys"
+regex = '''TRUST/examples/.*\.json$'''
+
+[[rules.allowlist.files]]
+description = "Allow license and docs"
+regex = '''(LICENSE|README\.md|.*\.md)$'''
+
+[allowlist]
+description = "Generic allowlist for placeholder strings"
+regexes = [
+  '''ED25519:REDACTED''',
+  '''REDACTED'''
+]
+

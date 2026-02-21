@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cloned.dev/schemas/blueprint.schema.json",
+  "title": "Blueprint",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {"type": "string"},
+    "version": {"type": "string"},
+    "goals": {"type": "array", "items": {"type": "string"}},
+    "required_capabilities": {"type": "array", "items": {"type": "string"}},
+    "preferred_connectors": {"type": "array", "items": {"type": "string"}},
+    "policy_pack": {"type": "string"},
+    "first_run_pipeline": {"type": "string"}
+  },
+  "required": ["id", "version", "required_capabilities"]
+}
+

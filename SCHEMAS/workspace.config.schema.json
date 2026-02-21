@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cloned.dev/schemas/workspace.config.schema.json",
+  "title": "Cloned Workspace Config",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "workspace_id": {"type": "string"},
+    "name": {"type": "string"},
+    "type": {"enum": ["personal", "shared", "enterprise"]},
+    "created_at": {"type": "string", "format": "date-time"},
+    "vault": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "provider": {"enum": ["azure-key-vault", "dev-file"]},
+        "config": {"type": "object"}
+      },
+      "required": ["provider", "config"]
+    },
+    "policy_pack_ref": {"type": "string"},
+    "trust": {
+      "type": "object",
+      "properties": {
+        "trust_roots_dir": {"type": "string"},
+        "revocations_file": {"type": "string"}
+      },
+      "required": ["trust_roots_dir", "revocations_file"],
+      "additionalProperties": false
+    },
+    "runtime": {
+      "type": "object",
+      "properties": {
+        "default_dry_run": {"type": "boolean", "default": false}
+      },
+      "additionalProperties": false
+    },
+    "server": {
+      "type": "object",
+      "properties": {
+        "bind": {"type": "string", "default": "127.0.0.1"},
+        "port": {"type": "integer", "default": 7800},
+        "trusted_proxies": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "security": {
+      "type": "object",
+      "properties": {
+        "require_device_pairing": {"type": "boolean", "default": true},
+        "reject_public_bind_without_auth": {"type": "boolean", "default": true},
+        "auth_rate_limit": {
+          "type": "object",
+          "properties": {
+            "max_attempts": {"type": "integer", "minimum": 1, "default": 10},
+            "window_ms": {"type": "integer", "minimum": 1000, "default": 60000},
+            "lockout_ms": {"type": "integer", "minimum": 1000, "default": 300000}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "ui": {
+      "type": "object",
+      "properties": {
+        "allowed_origins": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": ["workspace_id", "type", "vault", "policy_pack_ref", "trust"]
+}

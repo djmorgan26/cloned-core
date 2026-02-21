@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cloned.dev/schemas/tool.schema.json",
+  "title": "Tool Definition",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {"type": "string"},
+    "version": {"type": "string"},
+    "schema_id": {"type": "string"},
+    "permissions_required": {"type": "array", "items": {"type": "string"}},
+    "cost_metadata": {"type": "object"},
+    "redaction_rules": {"type": "array", "items": {"type": "string"}},
+    "egress_hosts": {"type": "array", "items": {"type": "string"}}
+  },
+  "required": ["id", "version", "schema_id"]
+}

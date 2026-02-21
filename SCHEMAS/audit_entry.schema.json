@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cloned.dev/schemas/audit_entry.schema.json",
+  "title": "Audit Log Entry",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {"type": "string"},
+    "timestamp": {"type": "string", "format": "date-time"},
+    "actor": {"type": "string"},
+    "workspace_id": {"type": "string"},
+    "tool_id": {"type": "string"},
+    "tool_version": {"type": "string"},
+    "schema_id": {"type": "string"},
+    "input_hash": {"type": "string"},
+    "policy_decision": {"type": "string"},
+    "costs": {"type": "object", "additionalProperties": {"type": "number"}},
+    "outcome": {"enum": ["success", "failure", "blocked", "dry_run"]},
+    "artifact_manifest_hash": {"type": "string"},
+    "dry_run": {"type": "boolean"},
+    "chain_prev_hash": {"type": "string"}
+  },
+  "required": ["id", "timestamp", "actor", "workspace_id", "tool_id", "tool_version", "schema_id", "input_hash", "policy_decision", "outcome", "dry_run"]
+}
+
