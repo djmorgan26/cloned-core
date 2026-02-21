@@ -24,12 +24,18 @@ export function registerBuiltinTools(policyPackId: string, cwd?: string): void {
   // ── Web Search ────────────────────────────────────────────────────────────
   registerTool('cloned.mcp.web.search@v1', async (input) => {
     const sf = makeSafeFetch(policy, { toolId: 'cloned.mcp.web.search@v1' });
+    // Brave key: vault takes precedence over env, enabling seamless key rotation
+    const braveApiKey =
+      (await vault.getSecret('brave.search.api_key')) ??
+      process.env['BRAVE_API_KEY'];
     return webSearch(
       {
         query: String(input['query'] ?? ''),
         max_results: typeof input['max_results'] === 'number' ? input['max_results'] : 10,
+        provider: (input['provider'] as 'auto' | 'duckduckgo' | 'brave') ?? 'auto',
       },
       sf,
+      braveApiKey ? { braveApiKey } : undefined,
     );
   });
 

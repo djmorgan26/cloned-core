@@ -30,10 +30,12 @@ allowlists:
     connector.web.search:
       - "api.duckduckgo.com"
       - "html.duckduckgo.com"
+      - "api.search.brave.com"
   egress_by_tool:
     cloned.mcp.web.search@v1:
       - "api.duckduckgo.com"
       - "html.duckduckgo.com"
+      - "api.search.brave.com"
     cloned.internal.synthesis@v1:
       - "api.openai.com"
       - "api.anthropic.com"
