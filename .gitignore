@@ -12,6 +12,9 @@ node_modules/
 dist/
 build/
 out/
+.cloned/
+coverage/
+*.log
 *.mp4
 *.mov
 *.wav
