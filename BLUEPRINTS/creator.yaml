@@ -1,7 +1,11 @@
 id: blueprint.creator
+title: Content Creator
+description: Generate YouTube-ready packages including scripts, assets, and publish-approval gates.
 version: 1.0.0
 goals:
   - Generate YouTube-ready package (script, assets)
+  - Create video content
+  - Publish to YouTube
 required_capabilities:
   - cap.content.video_packaging
   - cap.identity.vault_secrets
@@ -11,4 +15,3 @@ preferred_connectors:
   - connector.slack.oauth
 policy_pack: policy.personal.default
 first_run_pipeline: pipeline.creator.package
-

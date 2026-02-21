@@ -2,9 +2,12 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main, master, "claude/**"]
   pull_request:
-    branches: [ main ]
+    branches: [main, master]
+
+permissions:
+  contents: read
 
 jobs:
   schema-and-yaml-checks:
@@ -29,7 +32,7 @@ jobs:
           python3 - <<'PY'
 import sys, pathlib, yaml
 base = pathlib.Path('.')
-for p in base.rglob('*.yml') | base.rglob('*.yaml'):
+for p in list(base.rglob('*.yml')) + list(base.rglob('*.yaml')):
     try:
         yaml.safe_load(p.read_text())
         print(f"OK {p}")
@@ -37,4 +40,28 @@ for p in base.rglob('*.yml') | base.rglob('*.yaml'):
         print(f"YAML error {p}: {e}")
         sys.exit(1)
 PY
+
+  lint-typecheck-test:
+    name: Lint, Typecheck & Test (Node.js)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Tests
+        run: npm run test:ci
 

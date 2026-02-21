@@ -1,7 +1,11 @@
 id: blueprint.legal_research
+title: Legal Research
+description: Rapid case law exploration with citations using approved compliant data sources.
 version: 0.1.0
 goals:
   - Rapid case law exploration with citations
+  - Legal research and case law
+  - Find court decisions and legal precedents
 required_capabilities:
   - cap.research.web_search
   - cap.identity.vault_secrets

@@ -13,7 +13,10 @@ description = "Allow license and docs"
 regex = '''(LICENSE|README\.md|.*\.md)$'''
 
 [allowlist]
-description = "Generic allowlist for placeholder strings"
+description = "Generic allowlist for placeholder strings and test paths"
+paths = [
+  '''src/__tests__/.*\.test\.ts$'''
+]
 regexes = [
   '''ED25519:REDACTED''',
   '''REDACTED'''
