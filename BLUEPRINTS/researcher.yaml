@@ -1,7 +1,12 @@
 id: blueprint.researcher
+title: Research Assistant
+description: Produce deep research reports with citations from web sources.
 version: 1.0.0
 goals:
   - Produce deep research report with citations
+  - Research and summarize topics
+  - Generate research reports
+  - Find information and citations
 required_capabilities:
   - cap.research.web_search
   - cap.identity.vault_secrets
@@ -11,4 +16,3 @@ preferred_connectors:
   - connector.citations
 policy_pack: policy.personal.default
 first_run_pipeline: pipeline.research.report
-

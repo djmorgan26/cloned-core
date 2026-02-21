@@ -1,6 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
-import { join } from 'node:path';
 import { load } from 'js-yaml';
 import { getClonedPaths } from '../workspace/paths.js';
 

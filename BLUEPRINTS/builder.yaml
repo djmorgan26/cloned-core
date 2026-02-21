@@ -1,7 +1,12 @@
 id: blueprint.builder
+title: App Builder
+description: Scaffold repositories and applications with security best practices baked in.
 version: 1.0.0
 goals:
   - Scaffold repo/app with security basics
+  - Build and deploy apps
+  - Set up CI/CD pipelines
+  - Create GitHub repositories
 required_capabilities:
   - cap.dev.repo_management
   - cap.identity.vault_secrets

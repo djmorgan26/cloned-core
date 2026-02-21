@@ -55,11 +55,6 @@ function isLoopback(host: string): boolean {
   return h === '127.0.0.1' || h === 'localhost' || h === '::1' || h === '[::1]';
 }
 
-function isRFC1918(host: string): boolean {
-  // Check if host is a private IP (rough check for common ranges)
-  return /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/.test(host);
-}
-
 /**
  * Check if outbound egress to a host is allowed per policy.
  */

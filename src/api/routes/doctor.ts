@@ -9,7 +9,7 @@ interface RouteOpts {
   paths: ClonedPaths;
 }
 
-export async function registerDoctorRoutes(fastify: FastifyInstance, opts: RouteOpts) {
+export async function registerDoctorRoutes(fastify: FastifyInstance, _opts: RouteOpts) {
   fastify.get('/v1/doctor', async () => {
     const report = runDoctorChecks();
     return report;

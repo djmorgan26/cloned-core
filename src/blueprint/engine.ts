@@ -60,14 +60,11 @@ export function selectBlueprint(
 
   for (const bp of blueprints) {
     let score = 0;
-    for (const bpGoal of bp.goals) {
-      for (const userGoal of goals) {
-        if (
-          bpGoal.toLowerCase().includes(userGoal.toLowerCase()) ||
-          userGoal.toLowerCase().includes(bpGoal.toLowerCase())
-        ) {
-          score++;
-        }
+    const bpWords = bp.goals.join(' ').toLowerCase().split(/\W+/).filter(Boolean);
+    for (const userGoal of goals) {
+      const userWords = userGoal.toLowerCase().split(/\W+/).filter((w) => w.length > 3);
+      for (const word of userWords) {
+        if (bpWords.includes(word)) score++;
       }
     }
     if (score > bestScore) {

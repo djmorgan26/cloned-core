@@ -1,11 +1,9 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { load } from 'js-yaml';
 import { verifyConnectorSignature, loadTrustRoots } from './signing.js';
 import { addConnector, loadRegistry, saveRegistry } from './registry.js';
 import type { ConnectorEntry } from './registry.js';
 import { logger } from '../shared/logger.js';
-import { fileHash } from './signing.js';
 
 export interface InstallOptions {
   registryPath: string;

@@ -3,7 +3,8 @@
  * Uses tweetnacl for pure-JS Ed25519.
  */
 import nacl from 'tweetnacl';
-import { decodeBase64 } from 'tweetnacl-util';
+import naclUtil from 'tweetnacl-util';
+const { decodeBase64 } = naclUtil;
 import { createHash } from 'node:crypto';
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';

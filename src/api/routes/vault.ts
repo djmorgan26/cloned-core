@@ -9,7 +9,7 @@ interface RouteOpts {
   paths: ClonedPaths;
 }
 
-export async function registerVaultRoutes(fastify: FastifyInstance, opts: RouteOpts) {
+export async function registerVaultRoutes(fastify: FastifyInstance, _opts: RouteOpts) {
   fastify.get('/v1/vault/status', async () => {
     const vault = getVaultProvider();
     const status = await vault.status();

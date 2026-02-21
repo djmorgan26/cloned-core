@@ -13,7 +13,6 @@ export interface YouTubeAuthTokens {
   scope: string;
 }
 
-const YOUTUBE_AUTH_URI = 'https://accounts.google.com/o/oauth2/v2/auth';
 const YOUTUBE_TOKEN_URI = 'https://oauth2.googleapis.com/token';
 
 export const YOUTUBE_SCOPES = [

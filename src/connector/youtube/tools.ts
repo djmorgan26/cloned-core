@@ -115,7 +115,6 @@ export async function uploadVideo(
       Authorization: `Bearer ${ctx.access_token}`,
       'Content-Type': 'video/*',
     },
-    // @ts-ignore - body as stream is non-standard fetch
     body: stream,
     duplex: 'half',
   });

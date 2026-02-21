@@ -1,7 +1,12 @@
 import type { FastifyInstance } from 'fastify';
 import type Database from 'better-sqlite3';
 import type { WorkspaceConfig, ClonedPaths } from '../../workspace/types.js';
-import { loadRegistry } from '../../connector/registry.js';
+import {
+  loadRegistry,
+  saveRegistry,
+  enableConnector,
+  disableConnector,
+} from '../../connector/registry.js';
 import { installConnector } from '../../connector/installer.js';
 
 interface RouteOpts {
@@ -11,7 +16,7 @@ interface RouteOpts {
 }
 
 export async function registerConnectorRoutes(fastify: FastifyInstance, opts: RouteOpts) {
-  fastify.get('/v1/connectors', async (_req, reply) => {
+  fastify.get('/v1/connectors', async (_req, _reply) => {
     const registry = loadRegistry(opts.paths.registry);
     return { connectors: registry.connectors };
   });
@@ -41,18 +46,16 @@ export async function registerConnectorRoutes(fastify: FastifyInstance, opts: Ro
 
   fastify.post<{ Params: { id: string } }>('/v1/connectors/:id/enable', async (req, reply) => {
     const registry = loadRegistry(opts.paths.registry);
-    const { enableConnector, saveRegistry } = await import('../../connector/registry.js');
-    const ok = enableConnector(registry, req.params.id);
-    if (!ok) return reply.status(404).send({ error: 'Connector not found' });
+    if (!enableConnector(registry, req.params.id))
+      return reply.status(404).send({ error: 'Connector not found' });
     saveRegistry(opts.paths.registry, registry);
     return { id: req.params.id, enabled: true };
   });
 
   fastify.post<{ Params: { id: string } }>('/v1/connectors/:id/disable', async (req, reply) => {
     const registry = loadRegistry(opts.paths.registry);
-    const { disableConnector, saveRegistry } = await import('../../connector/registry.js');
-    const ok = disableConnector(registry, req.params.id);
-    if (!ok) return reply.status(404).send({ error: 'Connector not found' });
+    if (!disableConnector(registry, req.params.id))
+      return reply.status(404).send({ error: 'Connector not found' });
     saveRegistry(opts.paths.registry, registry);
     return { id: req.params.id, enabled: false };
   });
