@@ -3,14 +3,14 @@ import { redact, saltedHash, jsonHash, safeStringify } from '../shared/redact.js
 
 describe('Redaction', () => {
   it('redacts bearer tokens', () => {
-    const input = 'Authorization: Bearer eyJhbGciOiJSUzI1NiJ9.payload.sig';
+    const input = 'Authorization: Bearer fake-bearer-token-not-real-abc';
     const result = redact(input);
     expect(result).toContain('[REDACTED]');
-    expect(result).not.toContain('eyJhbGciOiJSUzI1NiJ9');
+    expect(result).not.toContain('fake-bearer-token-not-real-abc');
   });
 
   it('redacts token values', () => {
-    const input = '{"token": "supersecret123456789012345"}';
+    const input = '{"token": "fake-token-value-for-testing-only-xyz"}';
     const result = redact(input);
     expect(result).toContain('[REDACTED]');
   });
