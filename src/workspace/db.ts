@@ -28,7 +28,7 @@ export function openDb(dbPath: string): Database.Database {
   return _db;
 }
 
-function applyInlineSchema(db: Database.Database): void {
+export function applyInlineSchema(db: Database.Database): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS approvals (
       id TEXT PRIMARY KEY,
@@ -113,6 +113,13 @@ export function getDb(): Database.Database {
 export function closeDb(): void {
   if (_db) {
     _db.close();
+    _db = null;
+  }
+}
+
+export function _resetDb(): void {
+  if (_db) {
+    try { _db.close(); } catch { /* ignore */ }
     _db = null;
   }
 }

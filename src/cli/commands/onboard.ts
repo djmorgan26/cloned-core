@@ -2,8 +2,8 @@ import type { Command } from 'commander';
 import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadBlueprints, selectBlueprint, generatePlanOfRecord } from '../../blueprint/engine.js';
-import { getClonedPaths } from '../../workspace/paths.js';
-import { readWorkspaceConfig } from '../../workspace/config.js';
+import type { Blueprint } from '../../blueprint/engine.js';
+import { requireWorkspace } from '../cli-shared.js';
 import { getVaultProvider } from '../../vault/index.js';
 
 export function registerOnboardCommand(program: Command): void {
@@ -14,15 +14,7 @@ export function registerOnboardCommand(program: Command): void {
     .option('--blueprint <id>', 'Use a specific blueprint ID directly')
     .option('--dry-run', 'Show plan without making changes', false)
     .action(async (opts) => {
-      const paths = getClonedPaths();
-
-      let config;
-      try {
-        config = readWorkspaceConfig(paths.config);
-      } catch {
-        console.error('Workspace not initialized. Run: cloned init');
-        process.exit(1);
-      }
+      const { paths, config } = requireWorkspace();
 
       const blueprints = loadBlueprints();
 
@@ -61,42 +53,46 @@ export function registerOnboardCommand(program: Command): void {
         }
       }
 
-      let selectedBlueprint = null;
+      let maybeBlueprint: Blueprint | null = null;
 
       if (opts.blueprint) {
-        selectedBlueprint = blueprints.find((bp) => bp.id === opts.blueprint) ?? null;
-        if (!selectedBlueprint) {
+        maybeBlueprint = blueprints.find((bp) => bp.id === opts.blueprint) ?? null;
+        if (!maybeBlueprint) {
           console.error(`Blueprint not found: ${opts.blueprint}`);
           console.error('Available IDs:', blueprints.map((b) => b.id).join(', '));
           process.exit(1);
         }
       } else {
-        selectedBlueprint = selectBlueprint(blueprints, [goal!]);
+        maybeBlueprint = selectBlueprint(blueprints, [goal!]);
       }
 
-      if (!selectedBlueprint) {
+      if (!maybeBlueprint) {
         console.error('No matching blueprint found for your goal');
         process.exit(1);
       }
+
+      // Safe to assert non-null here – we exited above if null
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      const selectedBlueprint = maybeBlueprint!;
 
       console.log(`\nSelected blueprint: ${selectedBlueprint.title} [${selectedBlueprint.id}]`);
 
       const plan = generatePlanOfRecord(selectedBlueprint, config.workspace_id);
 
-      console.log('\n' + '─'.repeat(60));
+      console.log('\n' + '-'.repeat(60));
       console.log(plan.markdown);
-      console.log('─'.repeat(60));
+      console.log('-'.repeat(60));
 
       // Check connector status from vault
       const vault = getVaultProvider(`${paths.root}/vault.dev.json`);
       console.log('\nConnector status:');
       for (const { connector } of plan.connectors_needed) {
         const isConnected = await checkConnectorConnected(connector, vault);
-        const icon = isConnected ? '✓' : '✗';
+        const status = isConnected ? 'connected' : 'not connected';
         const hint = isConnected
           ? 'connected'
           : `run: cloned connect ${connector.replace('connector.', '')}`;
-        console.log(`  ${icon} ${connector}: ${hint}`);
+        console.log(`  [${status}] ${connector}: ${hint}`);
       }
 
       if (!opts.dryRun) {

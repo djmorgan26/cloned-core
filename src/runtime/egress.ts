@@ -52,7 +52,13 @@ function matchesEntry(host: string, entry: string): boolean {
 
 function isLoopback(host: string): boolean {
   const h = normalizeHost(host);
-  return h === '127.0.0.1' || h === 'localhost' || h === '::1' || h === '[::1]';
+  return (
+    h === '127.0.0.1' ||
+    h === 'localhost' ||
+    h === '::1' ||
+    h === '[::1]' ||
+    h === '::ffff:127.0.0.1'
+  );
 }
 
 /**
@@ -69,7 +75,10 @@ export function checkEgress(
   }
 
   // IP literals blocked by default (unless explicitly listed)
-  const isIp = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host) || /^\[?[0-9a-fA-F:]+\]?$/.test(host);
+  const IPV4_RE = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
+  const IPV6_RE = /^\[?[0-9a-fA-F:]+\]?$/;
+  const IPV4_MAPPED_RE = /^::ffff:\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/i;
+  const isIp = IPV4_RE.test(host) || IPV6_RE.test(host) || IPV4_MAPPED_RE.test(host);
   if (isIp && !isLoopback(host)) {
     // Check if explicitly in global allowlist
     const inGlobal = policy.allowlists.egress_domains.some((e) => matchesEntry(host, e));

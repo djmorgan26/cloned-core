@@ -1,20 +1,10 @@
 import type { Command } from 'commander';
-import { getClonedPaths } from '../../workspace/paths.js';
-import { readWorkspaceConfig } from '../../workspace/config.js';
-import { openDb } from '../../workspace/db.js';
+import { requireWorkspace } from '../cli-shared.js';
 import { loadPolicyPack } from '../../governance/policy.js';
 import { runPipeline } from '../../runtime/runner.js';
-import { researchPipeline } from '../../runtime/skills/researcher.js';
-import { builderPipeline } from '../../runtime/skills/builder.js';
-import { creatorPipeline } from '../../runtime/skills/creator.js';
+import { BUILT_IN_PIPELINES } from '../../runtime/pipelines.js';
 import { registerBuiltinTools } from '../../runtime/tools/index.js';
 import { DockerContainerRunner, type SandboxMode } from '../../runtime/container-runner.js';
-
-const BUILT_IN_PIPELINES = {
-  'pipeline.research.report': researchPipeline,
-  'pipeline.builder.scaffold': builderPipeline,
-  'pipeline.creator.youtube': creatorPipeline,
-};
 
 export function registerRunCommand(program: Command): void {
   program
@@ -25,24 +15,15 @@ export function registerRunCommand(program: Command): void {
     .option('--topic <topic>', 'Shorthand: set the "topic" input variable')
     .option('--sandbox <mode>', 'Sandbox mode for connectors (process|container)', 'process')
     .action(async (pipelineId: string, opts) => {
-      const paths = getClonedPaths();
+      const { paths, config, db } = requireWorkspace();
 
-      let config;
-      try {
-        config = readWorkspaceConfig(paths.config);
-      } catch {
-        console.error('Workspace not initialized. Run: cloned init');
-        process.exit(1);
-      }
-
-      const pipeline = BUILT_IN_PIPELINES[pipelineId as keyof typeof BUILT_IN_PIPELINES];
+      const pipeline = BUILT_IN_PIPELINES[pipelineId];
       if (!pipeline) {
         console.error(`Pipeline not found: ${pipelineId}`);
         console.error('Available pipelines:', Object.keys(BUILT_IN_PIPELINES).join(', '));
         process.exit(1);
       }
 
-      const db = openDb(paths.stateDb);
       const policy = loadPolicyPack(config.policy_pack, paths.policyDir);
 
       const sandbox = String(opts.sandbox ?? 'process') as SandboxMode;
@@ -101,10 +82,10 @@ export function registerRunCommand(program: Command): void {
         for (const step of result.steps) {
           const icon =
             step.outcome === 'success'
-              ? '✓'
+              ? '[ok]'
               : step.outcome === 'blocked'
-                ? '⊘'
-                : '✗';
+                ? '[blocked]'
+                : '[fail]';
           console.log(`  ${icon} ${step.step_id} (${step.tool_id}): ${step.outcome}`);
           if (step.blocked_reason) console.log(`    Blocked: ${step.blocked_reason}`);
           if (step.error) console.log(`    Error: ${step.error}`);

@@ -39,11 +39,11 @@ const TIER_BUDGETS: Record<WorkspaceTier, BudgetCap[]> = {
   ],
 };
 
-export async function initBudgets(
+export function initBudgets(
   db: Database.Database,
   workspaceId: string,
   tier: WorkspaceTier,
-): Promise<void> {
+): void {
   const caps = TIER_BUDGETS[tier];
   const now = new Date().toISOString();
 
@@ -151,6 +151,20 @@ export function recordBudgetUsage(
   db.prepare(
     `UPDATE budgets SET used = used + ? WHERE workspace_id = ? AND category = ?`,
   ).run(cost.amount, workspaceId, cost.category);
+}
+
+export function checkAndRecordBudget(
+  db: Database.Database,
+  workspaceId: string,
+  cost: CostEstimate,
+): BudgetCheckResult {
+  return db.transaction(() => {
+    const result = checkBudget(db, workspaceId, cost);
+    if (result.allowed) {
+      recordBudgetUsage(db, workspaceId, cost);
+    }
+    return result;
+  })();
 }
 
 function maybeRollWindow(

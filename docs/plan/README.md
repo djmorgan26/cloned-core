@@ -15,6 +15,7 @@ Docs (single place to find plans)
 - Security Plan: [v1-security-plan.md](v1-security-plan.md)
 - Integration Plan: [v1-integration-plan.md](v1-integration-plan.md)
 - Container & Sandbox Plan: [v1-container-security-plan.md](v1-container-security-plan.md)
+- Refactoring & Optimization Plan: [refactoring-plan.md](refactoring-plan.md)
 
 Current Status (summary)
 - Security foundations: egress firewall CLI + approval tool, SafeFetch in connectors, content guard, local LLM compose – done.

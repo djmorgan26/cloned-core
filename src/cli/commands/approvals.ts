@@ -1,7 +1,5 @@
 import type { Command } from 'commander';
-import { getClonedPaths } from '../../workspace/paths.js';
-import { readWorkspaceConfig } from '../../workspace/config.js';
-import { openDb } from '../../workspace/db.js';
+import { requireWorkspace } from '../cli-shared.js';
 import { listApprovals, decideApproval } from '../../governance/approvals.js';
 
 export function registerApprovalsCommand(program: Command): void {
@@ -14,16 +12,8 @@ export function registerApprovalsCommand(program: Command): void {
     .description('List approval requests')
     .option('--status <status>', 'Filter by status: pending, approved, denied')
     .action((opts) => {
-      const paths = getClonedPaths();
-      let config;
-      try {
-        config = readWorkspaceConfig(paths.config);
-      } catch {
-        console.error('Workspace not initialized. Run: cloned init');
-        process.exit(1);
-      }
-
-      const db = openDb(paths.stateDb);
+      const { paths, config, db } = requireWorkspace();
+      void paths;
       const filter = opts.status ? { status: opts.status as 'pending' | 'approved' | 'denied' } : undefined;
       const items = listApprovals(db, config.workspace_id, filter);
 
@@ -50,16 +40,7 @@ export function registerApprovalsCommand(program: Command): void {
     .description('Approve a pending request')
     .option('--reason <reason>', 'Reason for decision')
     .action((id: string, opts) => {
-      const paths = getClonedPaths();
-      let config;
-      try {
-        config = readWorkspaceConfig(paths.config);
-      } catch {
-        console.error('Workspace not initialized. Run: cloned init');
-        process.exit(1);
-      }
-
-      const db = openDb(paths.stateDb);
+      const { config, db } = requireWorkspace();
       try {
         const updated = decideApproval(db, config.workspace_id, id, 'approved', opts.reason);
         console.log(`Approved: ${updated.id}`);
@@ -74,16 +55,7 @@ export function registerApprovalsCommand(program: Command): void {
     .description('Deny a pending request')
     .option('--reason <reason>', 'Reason for decision')
     .action((id: string, opts) => {
-      const paths = getClonedPaths();
-      let config;
-      try {
-        config = readWorkspaceConfig(paths.config);
-      } catch {
-        console.error('Workspace not initialized. Run: cloned init');
-        process.exit(1);
-      }
-
-      const db = openDb(paths.stateDb);
+      const { config, db } = requireWorkspace();
       try {
         const updated = decideApproval(db, config.workspace_id, id, 'denied', opts.reason);
         console.log(`Denied: ${updated.id}`);

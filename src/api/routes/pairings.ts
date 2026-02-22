@@ -1,12 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import type Database from 'better-sqlite3';
-import type { WorkspaceConfig, ClonedPaths } from '../../workspace/types.js';
-
-interface RouteOpts {
-  db: Database.Database;
-  config: WorkspaceConfig | null;
-  paths: ClonedPaths;
-}
+import type { RouteOpts } from '../types.js';
 
 export async function registerPairingRoutes(fastify: FastifyInstance, opts: RouteOpts) {
   fastify.get('/v1/pairings', async () => {

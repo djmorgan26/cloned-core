@@ -53,3 +53,8 @@ export async function initVaultProvider(
   }
   return _activeProvider;
 }
+
+/** For testing only – resets the active provider so tests get a fresh one. */
+export function _resetVaultProvider(): void {
+  _activeProvider = null;
+}

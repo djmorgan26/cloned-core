@@ -36,3 +36,18 @@ export function createTempWorkspace(overrides: Partial<WorkspaceConfig> = {}): T
     cleanup: () => rmSync(root, { recursive: true, force: true }),
   };
 }
+
+import Database from 'better-sqlite3';
+import { applyInlineSchema } from '../workspace/db.js';
+
+/**
+ * Create a fresh in-memory SQLite database with the full application schema.
+ * Use this in tests that need a real database (runner, workspace-init, etc.)
+ */
+export function createTestDb(): Database.Database {
+  const db = new Database(':memory:');
+  db.pragma('journal_mode = WAL');
+  db.pragma('foreign_keys = ON');
+  applyInlineSchema(db);
+  return db;
+}
