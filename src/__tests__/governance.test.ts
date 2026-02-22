@@ -1,10 +1,11 @@
 import { describe, it, expect, beforeEach } from '@jest/globals';
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
+import MemoryDatabase from './memory-db.js';
 import { createApproval, decideApproval, listApprovals } from '../governance/approvals.js';
 import { checkBudget, recordBudgetUsage, initBudgets, getBudgets } from '../governance/budgets.js';
 
 function createTestDb(): Database.Database {
-  const db = new Database(':memory:');
+  const db = new MemoryDatabase(':memory:') as unknown as Database.Database;
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   db.exec(`

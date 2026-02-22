@@ -1,12 +1,16 @@
 /**
  * GitHub connector tool implementations (MCP-style).
  * Each tool is a function that takes validated input and returns a result.
+ *
+ * All outbound HTTP requests must use the provided SafeFetch (ctx.fetch)
+ * to ensure egress policy enforcement and auditability.
  */
 
 const GITHUB_API = 'https://api.github.com';
 
 export interface GitHubToolContext {
   token: string;
+  fetch: (url: string | URL, init?: RequestInit) => Promise<Response>;
 }
 
 export interface IssueCreateInput {
@@ -27,7 +31,7 @@ export async function createIssue(
   ctx: GitHubToolContext,
   input: IssueCreateInput,
 ): Promise<IssueCreateOutput> {
-  const resp = await fetch(`${GITHUB_API}/repos/${input.owner}/${input.repo}/issues`, {
+  const resp = await ctx.fetch(`${GITHUB_API}/repos/${input.owner}/${input.repo}/issues`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${ctx.token}`,
@@ -72,7 +76,7 @@ export async function createPullRequest(
   ctx: GitHubToolContext,
   input: PullRequestCreateInput,
 ): Promise<PullRequestCreateOutput> {
-  const resp = await fetch(`${GITHUB_API}/repos/${input.owner}/${input.repo}/pulls`, {
+  const resp = await ctx.fetch(`${GITHUB_API}/repos/${input.owner}/${input.repo}/pulls`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${ctx.token}`,
@@ -131,7 +135,7 @@ export async function listRepos(
     per_page: String(input.per_page ?? 30),
   });
 
-  const resp = await fetch(
+  const resp = await ctx.fetch(
     `${GITHUB_API}/orgs/${input.owner}/repos?${params}`,
     {
       headers: {

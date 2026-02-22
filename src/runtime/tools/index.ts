@@ -4,6 +4,8 @@
  * Import and call registerBuiltinTools() once at startup (in the CLI run command).
  * Each handler enforces egress via safeFetch and retrieves secrets via vault.
  */
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { dump } from 'js-yaml';
 import { registerTool } from '../runner.js';
 import { makeSafeFetch } from '../safe-fetch.js';
 import { webSearch } from './web-search.js';
@@ -14,10 +16,56 @@ import { packageVideo } from '../../connector/youtube/tools.js';
 import { getVaultProvider } from '../../vault/index.js';
 import { loadPolicyPack } from '../../governance/policy.js';
 import { getClonedPaths } from '../../workspace/paths.js';
+import type { ClonedPaths } from '../../workspace/types.js';
+
+export interface EgressUpdateOptions {
+  policyPackId: string;
+  paths: ClonedPaths;
+  scope: 'global' | 'tool';
+  toolId?: string;
+  domains: string[];
+}
+
+export function applyEgressUpdate({
+  policyPackId,
+  paths,
+  scope,
+  toolId,
+  domains,
+}: EgressUpdateOptions): { status: string; scope: string; tool_id?: string; domains: string[] } {
+  if (scope === 'tool' && !toolId) {
+    throw new Error('tool scope requires tool_id');
+  }
+
+  const pack = loadPolicyPack(policyPackId, paths.policyDir);
+  const uniqueDomains = Array.from(new Set(domains));
+
+  if (scope === 'global') {
+    pack.allowlists.egress_domains = Array.from(new Set([
+      ...pack.allowlists.egress_domains,
+      ...uniqueDomains,
+    ]));
+  } else {
+    const cur = pack.allowlists.egress_by_tool[toolId!] ?? [];
+    pack.allowlists.egress_by_tool[toolId!] = Array.from(new Set([
+      ...cur,
+      ...uniqueDomains,
+    ]));
+  }
+
+  if (!existsSync(paths.policyDir)) {
+    mkdirSync(paths.policyDir, { recursive: true });
+  }
+  const path = `${paths.policyDir}/${policyPackId}.yaml`;
+  writeFileSync(path, dump(pack), 'utf8');
+
+  return { status: 'updated', scope, tool_id: toolId, domains: uniqueDomains };
+}
 
 export function registerBuiltinTools(policyPackId: string, cwd?: string): void {
-  const policy = loadPolicyPack(policyPackId);
   const paths = getClonedPaths(cwd);
+  // Load policy with workspace overrides (allows firewall edits via CLI/tool)
+  const policy = loadPolicyPack(policyPackId, paths.policyDir);
   const vaultPath = `${paths.root}/vault.dev.json`;
   const vault = getVaultProvider(vaultPath);
 
@@ -86,8 +134,9 @@ export function registerBuiltinTools(policyPackId: string, cwd?: string): void {
   registerTool('cloned.mcp.github.issue.create@v1', async (input) => {
     const token = await vault.getSecret('github.oauth.access_token');
     if (!token) throw new Error('GitHub not connected. Run: cloned connect github');
+    const sf = makeSafeFetch(policy, { toolId: 'cloned.mcp.github.issue.create@v1', connectorId: 'connector.github.app' });
     return createIssue(
-      { token },
+      { token, fetch: sf },
       {
         owner: String(input['owner'] ?? ''),
         repo: String(input['repo'] ?? ''),
@@ -102,8 +151,9 @@ export function registerBuiltinTools(policyPackId: string, cwd?: string): void {
   registerTool('cloned.mcp.github.pr.create@v1', async (input) => {
     const token = await vault.getSecret('github.oauth.access_token');
     if (!token) throw new Error('GitHub not connected. Run: cloned connect github');
+    const sf = makeSafeFetch(policy, { toolId: 'cloned.mcp.github.pr.create@v1', connectorId: 'connector.github.app' });
     return createPullRequest(
-      { token },
+      { token, fetch: sf },
       {
         owner: String(input['owner'] ?? ''),
         repo: String(input['repo'] ?? ''),
@@ -129,6 +179,22 @@ export function registerBuiltinTools(policyPackId: string, cwd?: string): void {
         privacy: (input['privacy'] as 'public' | 'private' | 'unlisted') ?? 'private',
       },
     );
+  });
+
+  // ── Security: Egress Firewall Update (approval-gated) ─────────────────────
+  registerTool('cloned.internal.security.egress.update@v1', async (input) => {
+    const scope = String(input['scope'] ?? 'global'); // 'global' | 'tool'
+    const toolId = input['tool_id'] as string | undefined;
+    const domains = Array.isArray(input['domains'])
+      ? (input['domains'] as unknown[]).map(String)
+      : [String(input['domain'] ?? '')].filter(Boolean);
+    return applyEgressUpdate({
+      policyPackId,
+      paths,
+      scope: scope as 'global' | 'tool',
+      toolId,
+      domains,
+    });
   });
 
   // cloned.mcp.youtube.video.upload@v1 is intentionally NOT registered here.

@@ -10,6 +10,15 @@ This guide walks you through installing, initializing, and running your first pi
 - **npm 9+** – bundled with Node.js
 - An **LLM API key** (OpenAI-compatible) for the synthesis step; get one at [platform.openai.com](https://platform.openai.com)
 
+## Bring your own connector credentials
+
+`cloned connect github` and `cloned connect youtube` expect you to supply client credentials from your own OAuth apps:
+
+- **GitHub:** create a GitHub App, note its client ID, and export `GITHUB_CLIENT_ID`. The CLI walks you through the OAuth device flow and saves the resulting user token into the vault, but GitHub App installation state is not automated yet—you still need to manually install/activate the app per the on-screen instructions.
+- **YouTube:** create an OAuth client (installed application), export `YOUTUBE_CLIENT_ID` and `YOUTUBE_CLIENT_SECRET`, then run the device flow. The runtime only supports assist mode right now, so uploads remain blocked even after auth.
+
+Those client IDs/secrets never touch git or logs; they live only in your local terminal environment and the vault file.
+
 ---
 
 ## Installation
@@ -143,6 +152,8 @@ cloned serve
 
 Open [http://127.0.0.1:7800](http://127.0.0.1:7800) in your browser.
 
+> **Device pairing note:** once you approve a pairing (via the Pairings API), every UI/API request must include `X-Device-Id`. The SPA does not send that header yet, so leave at least one device pending while you explore the UI, or call API endpoints manually with `curl -H "X-Device-Id: <approved-device-id>" ...` until the pairing UX ships.
+
 The dashboard shows:
 - **Overview** – workspace info, budget bars, recent runs
 - **Runs** – full history; start new pipelines from the UI
@@ -168,7 +179,7 @@ Follow the prompts to:
 3. Wait for the CLI to detect authorization
 4. Token is stored in vault automatically
 
-After connection, the GitHub tools (`github.issue.create`, `github.pr.create`) become available.
+The CLI stops after the OAuth bootstrap. Use the URL it prints to manually install/activate your GitHub App—registry state transitions and installation webhooks are on the roadmap, so treat this flow as "get a user token into the vault" for now. Once the GitHub App pieces land, the existing tools (`github.issue.create`, `github.pr.create`) will automatically start using installation tokens instead of the user token.
 
 ---
 
@@ -180,15 +191,13 @@ export YOUTUBE_CLIENT_SECRET=your_google_client_secret
 cloned connect youtube
 ```
 
-YouTube runs in **assist mode by default** – it will generate video packages but will NOT upload without explicit approval:
+YouTube runs in **assist mode by default** – it will generate video packages but will **not** upload (there is no upload handler registered yet). Treat the resulting artifact as a draft package that you can inspect or hand off for manual publishing.
 
 ```bash
 # Run the creator pipeline
 cloned run pipeline.creator.youtube --input '{"topic":"AI tools for developers","title":"Top AI Dev Tools 2025","description":"A roundup of the best AI tools...","tags":["AI","developers","tools"]}'
 
-# If upload step appears in queue:
-cloned approvals list
-cloned approvals approve <approval-id>
+# Upload automation is not wired yet, so approval prompts are informational only.
 ```
 
 ---
@@ -218,7 +227,7 @@ Test any pipeline without executing real actions:
 cloned run pipeline.research.report --topic "test" --dry-run
 ```
 
-In dry-run mode, tool calls are simulated and logged but no API requests are made.
+Dry-run still executes the real tool handlers; it simply short-circuits approvals and budget debits. To keep the run entirely offline you must stub/memoize the handlers yourself.
 
 ---
 

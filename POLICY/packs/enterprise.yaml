@@ -19,6 +19,9 @@ approvals:
     - match: { cost_category: content_publish }
       requires_approval: true
       approvers: ["product", "marketing"]
+    - match: { tool_id: cloned.internal.security.egress.update@v1 }
+      requires_approval: true
+      approvers: ["security"]
 allowlists:
   publishers: ["cloned.official", "enterprise.trusted"]
   tools: []

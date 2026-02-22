@@ -20,6 +20,7 @@ Cloned lets you run AI-powered pipelines (research, content creation, GitHub aut
 - **Audit trail** – append-only chain-hashed log so you can verify no entries were tampered with
 - **Signed connectors** – connectors are installed from a registry with Ed25519 signature verification
 - **Command Center UI** – React dashboard at `http://127.0.0.1:7800` to observe runs, manage approvals, and review budgets
+- **Local containers, hardened** – LocalAI compose file runs as non-root, read-only, loopback-bound (see RUNTIME/containers.md). Upcoming work: containerized connector runner + egress proxy (PLAN/v1_container_security_plan.md).
 
 ---
 
@@ -49,6 +50,21 @@ npx cloned serve
 ```
 
 See [GETTING_STARTED.md](./GETTING_STARTED.md) for a full walkthrough.
+
+Planning and Status
+- All planning docs are indexed at PLAN/README.md (workplan, acceptance tests, security, integration).
+
+## Current readiness
+
+- ✅ **Researcher pipeline** runs end-to-end once you set `llm.api_key`; the CLI registers built-in tools automatically before each run, so `cloned run pipeline.research.report --topic "..."` produces a cited markdown artifact.
+- ⚠️ **Connector onboarding** currently stops after storing OAuth tokens in the vault. Registry records, DB state transitions, and YouTube upload orchestration are still TODO, so treat `cloned connect github|youtube` as auth helpers rather than full lifecycle managers.
+- ⚠️ **Creator/builder pipelines** reference future tools (`cloned.internal.scaffold.*`, `cloned.mcp.youtube.video.upload@v1`). They remain in "assist"/planning mode until those handlers ship; do not expect publishing automation yet.
+- ⚠️ **Command Center UI** works while the API is in bootstrap mode (no approved device pairings). After you approve a device, every request must include `X-Device-Id`, but the current SPA does not send that header. Keep at least one pairing pending or access the API via curl/Postman with the header until the UI pairing flow lands.
+- ⚠️ **`--dry-run`** still executes real tool handlers (it only bypasses approvals/budgets). Keep firewall allowlists tight even in dry-run mode, and use mocks if you need a truly offline rehearsal.
+
+## Gateway / isolation roadmap
+
+Cloned inherited the "gateway" inspiration from OpenClaw: every outbound HTTP call already passes through `SafeFetch`, which enforces per-tool allowlists and records audit entries. The longer-term containerized gateway (sandboxed connectors, policy-aware proxy, and port governance) is being tracked in [PLAN/v1_container_security_plan.md](PLAN/v1_container_security_plan.md). That document spells out the LocalAI hardening (now implemented) plus the upcoming out-of-process connector runner and firewall integration.
 
 ---
 

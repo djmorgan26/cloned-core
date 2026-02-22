@@ -9,6 +9,7 @@ const YOUTUBE_API = 'https://www.googleapis.com/youtube/v3';
 export interface YouTubeToolContext {
   access_token: string;
   assist_mode?: boolean; // If true, generate package but don't upload
+  fetch?: (url: string | URL, init?: RequestInit) => Promise<Response>;
 }
 
 export interface VideoPackageInput {
@@ -78,7 +79,8 @@ export async function uploadVideo(
   const { createReadStream } = await import('node:fs');
   const stream = createReadStream(input.video_file_path);
 
-  const resp = await fetch(
+  const http = ctx.fetch ?? fetch;
+  const resp = await http(
     `https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status`,
     {
       method: 'POST',
@@ -109,7 +111,7 @@ export async function uploadVideo(
   if (!uploadUri) throw new Error('No upload URI returned by YouTube');
 
   // Stream the actual video (simplified)
-  const uploadResp = await fetch(uploadUri, {
+  const uploadResp = await http(uploadUri, {
     method: 'PUT',
     headers: {
       Authorization: `Bearer ${ctx.access_token}`,
@@ -138,7 +140,8 @@ export async function uploadVideo(
 export async function listMyChannels(
   ctx: YouTubeToolContext,
 ): Promise<Array<{ id: string; title: string; subscriber_count?: number }>> {
-  const resp = await fetch(
+  const http = ctx.fetch ?? fetch;
+  const resp = await http(
     `${YOUTUBE_API}/channels?part=snippet,statistics&mine=true`,
     {
       headers: {

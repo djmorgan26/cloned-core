@@ -15,6 +15,16 @@
 - Audit logs include tool_id/version, hashes, timestamps; no secrets
 - Egress allowlists enforced: connector/tool cannot reach non-allowlisted domains
 
+## C1) Firewall UX + Policy Edits
+- `cloned firewall list` shows the merged allowlists from built-in packs plus `.cloned/policy/<pack>.yaml` workspace overrides.
+- `cloned firewall allow api.example.com --tool cloned.mcp.web.search@v1` writes to the workspace overlay, dedupes entries, and the new domain becomes active immediately.
+- `cloned firewall remove api.example.com` updates the overlay and future runs block the host again.
+- Programmatic edits via `cloned.internal.security.egress.update@v1` always create an approval request (per POLICY/packs) and apply only after approval; denial leaves the overlay untouched.
+
+## C2) Local LLM + Prompt Guard
+- With `docker/compose.local-llm.yaml` running and `LLM_API_BASE` pointed at loopback, `cloned.internal.synthesis@v1` resolves to the local endpoint and SafeFetch blocks attempts to reach non-allowlisted model hosts.
+- When synthesis is given sources containing prompt-injection strings, the sanitized text from `guardUntrustedContent` (not the raw source) is sent to the model, flagged patterns are logged, and malicious instructions are ignored in the output.
+
 ## D) Capability Graph
 - A goal maps to required capabilities via the graph
 - Missing capabilities are detected and produce actionable recommendations

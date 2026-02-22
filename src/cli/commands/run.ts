@@ -41,7 +41,7 @@ export function registerRunCommand(program: Command): void {
       }
 
       const db = openDb(paths.stateDb);
-      const policy = loadPolicyPack(config.policy_pack);
+      const policy = loadPolicyPack(config.policy_pack, paths.policyDir);
 
       // Register built-in tool handlers before running
       registerBuiltinTools(config.policy_pack);

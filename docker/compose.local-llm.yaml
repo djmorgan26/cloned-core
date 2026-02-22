@@ -1,0 +1,42 @@
+version: '3.9'
+services:
+  localai:
+    image: quay.io/go-skynet/local-ai:latest
+    container_name: cloned-localai
+    user: '65532:65532' # run as nobody-ish user
+    environment:
+      - THREADS=4
+      - MODELS=/models
+      - LOG_LEVEL=info
+      - CORS=true
+      - DEBUG=false
+      # Optional API key – our app reads LLM_API_KEY if provided
+      - OPENAI_API_KEY=${LLM_API_KEY:-local-dev}
+    volumes:
+      - ./models:/models
+    ports:
+      - '127.0.0.1:8080:8080'
+    command: ["/usr/bin/local-ai", "-addr", ":8080"]
+    # Harden container
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 256
+    mem_limit: 8g
+    cpus: 4
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/health || wget -qO- http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+    init: true
+    restart: unless-stopped
+
+# Usage:
+# 1) docker compose -f docker/compose.local-llm.yaml up -d
+# 2) export LLM_API_BASE=http://localhost:8080/v1
+# 3) export LLM_API_KEY=local-dev (or set in vault as llm.api_key)
+# 4) run: npm run cli -- run pipeline.research.report --dry-run

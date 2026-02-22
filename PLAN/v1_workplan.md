@@ -1,5 +1,7 @@
 # v1 Workplan (Ordered, Public-Ready)
 
+Note: Security track updates and firewall/local‑LLM decisions are centralized in PLAN/v1_security_plan.md. This workplan remains for overall delivery sequencing and is complemented (not replaced) by the security plan.
+
 This is the implementation order. Each phase has exit criteria and references acceptance tests.
 
 ## Phase 0: Repo + Release Hygiene (must be first)
@@ -95,6 +97,7 @@ Deliverables:
   - Approvals view (pending/decided)
   - Connectors view (installed, versions, signatures, capabilities)
   - Secrets status view (no values shown; just health and references)
+  - Firewall + policy overrides view (read-only defaults, workspace overlay diff, approval-gated change requests)
 - UI must be professional, intuitive, “hyperscaler-like” (see UX/command_center.md)
  - Local API OpenAPI spec stubbed (API/openapi.yaml)
 

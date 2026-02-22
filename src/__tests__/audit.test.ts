@@ -1,12 +1,13 @@
 import { describe, it, expect, beforeEach } from '@jest/globals';
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
+import MemoryDatabase from './memory-db.js';
 import { appendAuditEntry, listAuditLog } from '../audit/audit.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { mkdtempSync } from 'node:fs';
 
 function createTestDb(): Database.Database {
-  const db = new Database(':memory:');
+  const db = new MemoryDatabase(':memory:') as unknown as Database.Database;
   db.pragma('journal_mode = WAL');
   db.exec(`
     CREATE TABLE IF NOT EXISTS audit_log (

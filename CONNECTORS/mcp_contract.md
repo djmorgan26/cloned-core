@@ -1,28 +1,31 @@
-# MCP Connector Contract (v1)
+MCP-Style Connector Contract (Draft v1)
 
-Protocol
-- MCP over stdio or HTTP; must advertise protocol version.
+Package Layout
+- Manifest: package.manifest.json (SCHEMAS/connector.manifest.schema.json)
+- Files: tool modules and metadata. Hashes and optional signature included in manifest.
 
-Handshake
-- Connector returns metadata:
-  - connector `id`, `version`, `publisher_id`
-  - tools: `id`, `version`, `schema_id`, `capability`
-  - input schemas (JSON Schema IDs)
-  - redaction rules and permissions_required
-  - provides_capabilities, requires_capabilities
+Manifest Fields (high level)
+- id, version, publisher_id
+- files: paths + integrity hashes
+- tools[]: { tool_id, version, schema_id, egress_hosts[] }
 
-Runtime Expectations
-- Runtime validates tool schemas and merges redaction rules with policy
-- Tool allowlists enforced before dispatch; blocked tools are not called
-- Dry-run: runtime never dispatches; must not require connector reachability to compute plan
-- Egress policy: connector must declare intended outbound hosts (exact or wildcard);
-  runtime enforces domain allowlists from policy (default-deny)
+Trust & Signing
+- Verify publisher by .cloned/trust/publishers/*.json
+- Verify package signature (Ed25519) and file hashes
+- Check policy allowlists for publisher/tool IDs
 
-Errors & Status
-- Standard error envelope with code, message, retriable flag
-- Cost metadata optional; if unknown, runtime treats as `requires_approval=true`
+Runtime Contract
+- Tools expose a function(input) -> output; input/output validated by schema_id
+- Out-of-process mode (roadmap): JSON-RPC over stdio using SCHEMAS/tool_call_envelope.schema.json
+- Egress: declare egress_hosts[]; runtime enforces allowlists via SafeFetch
 
-Security
-- No secrets in logs; do not print tokens or payloads
-- Prefer short-lived tokens (OAuth device flow or app installation tokens)
-- Connectors run out-of-process under least privilege; environment sanitized
+Versioning
+- Tool IDs are stable; new versions published side-by-side.
+- Breaking changes require new version and schema IDs.
+
+Installation Flow
+1) Verify signature and hashes
+2) Verify publisher trust + policy
+3) Register tools + metadata in .cloned/registry.yaml
+4) Disabled by default until explicitly enabled
+
