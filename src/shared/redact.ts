@@ -34,7 +34,11 @@ export function saltedHash(value: string, salt: string): string {
  * SHA-256 hash of a canonical JSON representation of an object.
  */
 export function jsonHash(obj: unknown): string {
-  const canonical = JSON.stringify(obj, Object.keys(obj as Record<string, unknown>).sort());
+  const replacer =
+    obj !== null && typeof obj === 'object' && !Array.isArray(obj)
+      ? Object.keys(obj as Record<string, unknown>).sort()
+      : undefined;
+  const canonical = JSON.stringify(obj, replacer) ?? 'null';
   return createHash('sha256').update(canonical).digest('hex');
 }
 
