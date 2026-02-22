@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { to: '/secrets', label: 'Secrets', icon: '⊕' },
   { to: '/pairings', label: 'Devices', icon: '⊗' },
   { to: '/doctor', label: 'Doctor', icon: '♥' },
+  { to: '/docs', label: 'Docs', icon: '📄' },
 ];
 
 export function Sidebar() {

@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Path to SQL schema relative to this file's compiled location
-const SCHEMA_SQL = join(__dirname, '../../STATE/sqlite_schema.sql');
+const SCHEMA_SQL = join(__dirname, '../../state/sqlite_schema.sql');
 
 let _db: Database.Database | null = null;
 

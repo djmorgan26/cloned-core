@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Validate all JSON schemas in SCHEMAS/ are valid JSON.
+ * Validate all JSON schemas in schemas/ are valid JSON.
  * In CI, this script exits non-zero on any parse error.
  */
 import { readFileSync, readdirSync } from 'node:fs';
@@ -8,14 +8,14 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const schemasDir = join(__dirname, '..', 'SCHEMAS');
+const schemasDir = join(__dirname, '..', 'schemas');
 
 let errors = 0;
 
 const files = readdirSync(schemasDir).filter((f) => f.endsWith('.json'));
 
 if (files.length === 0) {
-  console.error('No JSON schema files found in SCHEMAS/');
+  console.error('No JSON schema files found in schemas/');
   process.exit(1);
 }
 

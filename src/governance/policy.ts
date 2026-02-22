@@ -35,9 +35,9 @@ export interface PolicyPack {
   };
 }
 
-// Load a built-in policy pack from the POLICY/packs directory
+// Load a built-in policy pack from the policy/packs directory
 function loadBuiltinPack(packName: string): PolicyPack | null {
-  const packPath = join(__dirname, '../../POLICY/packs', `${packName}.yaml`);
+  const packPath = join(__dirname, '../../policy/packs', `${packName}.yaml`);
   if (!existsSync(packPath)) return null;
   return load(readFileSync(packPath, 'utf8')) as PolicyPack;
 }

@@ -10,6 +10,7 @@ import { Budgets } from './pages/Budgets.tsx';
 import { Secrets } from './pages/Secrets.tsx';
 import { Doctor } from './pages/Doctor.tsx';
 import { Pairings } from './pages/Pairings.tsx';
+import { Docs } from './pages/Docs.tsx';
 
 function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -33,6 +34,7 @@ export default function App() {
         <Route path="/secrets" element={<AppLayout><Secrets /></AppLayout>} />
         <Route path="/pairings" element={<AppLayout><Pairings /></AppLayout>} />
         <Route path="/doctor" element={<AppLayout><Doctor /></AppLayout>} />
+        <Route path="/docs" element={<AppLayout><Docs /></AppLayout>} />
       </Routes>
     </BrowserRouter>
   );

@@ -20,7 +20,7 @@ Cloned lets you run AI-powered pipelines (research, content creation, GitHub aut
 - **Audit trail** – append-only chain-hashed log so you can verify no entries were tampered with
 - **Signed connectors** – connectors are installed from a registry with Ed25519 signature verification
 - **Command Center UI** – React dashboard at `http://127.0.0.1:7800` to observe runs, manage approvals, and review budgets
-- **Local containers, hardened** – LocalAI compose file runs as non-root, read-only, loopback-bound (see RUNTIME/containers.md). Upcoming work: containerized connector runner + egress proxy (PLAN/v1_container_security_plan.md).
+- **Local containers, hardened** – LocalAI compose file runs as non-root, read-only, loopback-bound, and connectors can run inside the sandboxed Docker runner (`--sandbox container`) with optional HTTP proxy control (see [docs/runtime/containers.md](docs/runtime/containers.md)).
 
 ---
 
@@ -49,10 +49,10 @@ npx cloned serve
 # Open http://127.0.0.1:7800
 ```
 
-See [GETTING_STARTED.md](./GETTING_STARTED.md) for a full walkthrough.
+See [getting-started.md](./getting-started.md) for a full walkthrough.
 
 Planning and Status
-- All planning docs are indexed at PLAN/README.md (workplan, acceptance tests, security, integration).
+- All planning docs are indexed at [docs/plan/README.md](docs/plan/README.md) (workplan, acceptance tests, security, integration).
 
 ## Current readiness
 
@@ -64,7 +64,7 @@ Planning and Status
 
 ## Gateway / isolation roadmap
 
-Cloned inherited the "gateway" inspiration from OpenClaw: every outbound HTTP call already passes through `SafeFetch`, which enforces per-tool allowlists and records audit entries. The longer-term containerized gateway (sandboxed connectors, policy-aware proxy, and port governance) is being tracked in [PLAN/v1_container_security_plan.md](PLAN/v1_container_security_plan.md). That document spells out the LocalAI hardening (now implemented) plus the upcoming out-of-process connector runner and firewall integration.
+Cloned inherited the "gateway" inspiration from OpenClaw: every outbound HTTP call already passes through `SafeFetch`, which enforces per-tool allowlists and records audit entries. The Docker-based connector sandbox + proxy plumbing now ships behind `--sandbox container`; the remaining roadmap items (optional dedicated proxy container + port governance doctor) live in [docs/plan/v1-container-security-plan.md](docs/plan/v1-container-security-plan.md).
 
 ---
 
@@ -75,12 +75,13 @@ Cloned inherited the "gateway" inspiration from OpenClaw: every outbound HTTP ca
 | `cloned init [--type personal\|shared\|enterprise]` | Initialize workspace in current directory |
 | `cloned doctor` | Check environment and diagnose issues |
 | `cloned onboard [--goal "..."]` | Interactive blueprint selection |
-| `cloned run <pipeline> [--topic "..."] [--dry-run]` | Run a pipeline |
+| `cloned run <pipeline> [--topic "..."] [--dry-run] [--sandbox container]` | Run a pipeline (optionally inside the Docker sandbox) |
 | `cloned connect github` | Connect GitHub via OAuth device flow |
 | `cloned connect youtube` | Connect YouTube via OAuth device flow |
 | `cloned vault set <key> <value>` | Store a secret in the vault |
 | `cloned approvals list` | View pending approvals |
 | `cloned serve` | Start the API server + Command Center UI |
+| `cloned firewall proxy [--set <url> | --clear]` | Inspect or configure the HTTP proxy used by sandboxed connectors |
 
 ---
 
@@ -109,10 +110,11 @@ src/
   blueprint/    # Blueprint engine + Plan of Record generation
   workspace/    # Init, config, SQLite DB, paths
 ui/             # React + Vite Command Center (Overview, Runs, Approvals, Budgets, ...)
-BLUEPRINTS/     # researcher.yaml, creator.yaml, builder.yaml, legal_research.yaml
-POLICY/packs/   # personal.yaml, shared.yaml, enterprise.yaml
-SCHEMAS/        # JSON schemas for workspace, connector, audit, blueprint, tool
-STATE/          # SQLite schema (runs, approvals, audit, budgets, pairings)
+blueprints/     # researcher.yaml, creator.yaml, builder.yaml, legal_research.yaml
+policy/packs/   # personal.yaml, shared.yaml, enterprise.yaml
+schemas/        # JSON schemas for workspace, connector, audit, blueprint, tool
+state/          # SQLite schema (runs, approvals, audit, budgets, pairings)
+docs/           # All human-readable docs (plan, runtime, security, connectors, ...)
 ```
 
 ---

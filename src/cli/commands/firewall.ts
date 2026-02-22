@@ -2,7 +2,7 @@ import type { Command } from 'commander';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dump } from 'js-yaml';
 import { getClonedPaths } from '../../workspace/paths.js';
-import { readWorkspaceConfig } from '../../workspace/config.js';
+import { readWorkspaceConfig, writeWorkspaceConfig } from '../../workspace/config.js';
 import { loadPolicyPack } from '../../governance/policy.js';
 
 function ensurePolicyDir(dir: string) {
@@ -34,6 +34,13 @@ export function registerFirewallCommand(program: Command): void {
         console.log(`  ${conn}:`);
         list.forEach((d) => console.log(`    - ${d}`));
       }
+
+      const workspaceProxy = cfg.network?.egress_proxy;
+      const envProxy = process.env['CLONED_EGRESS_PROXY'];
+      console.log('\nEgress proxy:');
+      console.log(`  workspace: ${workspaceProxy ?? '(not set)'}`);
+      if (envProxy) console.log(`  env override: ${envProxy}`);
+      console.log(`  effective: ${envProxy ?? workspaceProxy ?? 'disabled (direct egress)'}`);
     });
 
   fw.command('allow')
@@ -81,5 +88,45 @@ export function registerFirewallCommand(program: Command): void {
       ensurePolicyDir(paths.policyDir);
       writeFileSync(`${paths.policyDir}/${cfg.policy_pack}.yaml`, dump(pack), 'utf8');
     });
-}
 
+  fw.command('proxy')
+    .description('Show or configure the optional egress proxy used by sandboxed connectors')
+    .option('--set <url>', 'Set HTTP(S) proxy URL (e.g., http://127.0.0.1:8888)')
+    .option('--clear', 'Clear the workspace proxy override')
+    .option('--cwd <dir>', 'Workspace directory', process.cwd())
+    .action((opts) => {
+      if (opts.set && opts.clear) {
+        console.error('Use either --set or --clear, not both.');
+        process.exit(1);
+      }
+
+      const paths = getClonedPaths(opts.cwd);
+      const cfg = readWorkspaceConfig(paths.config);
+
+      if (opts.set) {
+        cfg.network = cfg.network ?? {};
+        cfg.network.egress_proxy = opts.set;
+        writeWorkspaceConfig(paths.config, cfg);
+        console.log(`Egress proxy set to ${opts.set}`);
+        return;
+      }
+
+      if (opts.clear) {
+        if (cfg.network) {
+          delete cfg.network.egress_proxy;
+          if (Object.keys(cfg.network).length === 0) {
+            delete cfg.network;
+          }
+        }
+        writeWorkspaceConfig(paths.config, cfg);
+        console.log('Egress proxy cleared.');
+        return;
+      }
+
+      const workspaceProxy = cfg.network?.egress_proxy;
+      const envProxy = process.env['CLONED_EGRESS_PROXY'];
+      console.log(`Workspace proxy: ${workspaceProxy ?? '(not set)'}`);
+      if (envProxy) console.log(`Env override CLONED_EGRESS_PROXY: ${envProxy}`);
+      console.log(`Effective proxy: ${envProxy ?? workspaceProxy ?? 'disabled (direct egress)'}`);
+    });
+}

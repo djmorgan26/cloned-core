@@ -1,5 +1,5 @@
 /**
- * Egress enforcement per RUNTIME/egress_matching.md
+ * Egress enforcement per docs/runtime/egress-matching.md
  * Default-deny outbound; allows only policy-specified domains.
  */
 import type { PolicyPack } from '../governance/policy.js';

@@ -5,7 +5,7 @@ import { load } from 'js-yaml';
 import { buildCapabilityGraph, resolveCapabilities, selectConnectors } from '../capability/graph.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const BLUEPRINTS_DIR = join(__dirname, '../../BLUEPRINTS');
+const BLUEPRINTS_DIR = join(__dirname, '../../blueprints');
 
 export interface Blueprint {
   id: string;

@@ -8,6 +8,7 @@ import { researchPipeline } from '../../runtime/skills/researcher.js';
 import { builderPipeline } from '../../runtime/skills/builder.js';
 import { creatorPipeline } from '../../runtime/skills/creator.js';
 import { registerBuiltinTools } from '../../runtime/tools/index.js';
+import { DockerContainerRunner, type SandboxMode } from '../../runtime/container-runner.js';
 
 const BUILT_IN_PIPELINES = {
   'pipeline.research.report': researchPipeline,
@@ -22,6 +23,7 @@ export function registerRunCommand(program: Command): void {
     .option('--dry-run', 'Simulate run without executing actions', false)
     .option('--input <json>', 'JSON input variables for the pipeline (e.g. \'{"topic":"AI safety"}\')')
     .option('--topic <topic>', 'Shorthand: set the "topic" input variable')
+    .option('--sandbox <mode>', 'Sandbox mode for connectors (process|container)', 'process')
     .action(async (pipelineId: string, opts) => {
       const paths = getClonedPaths();
 
@@ -43,8 +45,24 @@ export function registerRunCommand(program: Command): void {
       const db = openDb(paths.stateDb);
       const policy = loadPolicyPack(config.policy_pack, paths.policyDir);
 
+      const sandbox = String(opts.sandbox ?? 'process') as SandboxMode;
+      if (!['process', 'container'].includes(sandbox)) {
+        console.error('Invalid sandbox mode. Use "process" or "container".');
+        process.exit(1);
+      }
+
+      let containerRunner: DockerContainerRunner | undefined;
+      if (sandbox === 'container') {
+        const proxyUrl = process.env['CLONED_EGRESS_PROXY'] ?? config.network?.egress_proxy;
+        containerRunner = new DockerContainerRunner({ proxyUrl });
+      }
+
       // Register built-in tool handlers before running
-      registerBuiltinTools(config.policy_pack);
+      registerBuiltinTools(config.policy_pack, {
+        cwd: process.cwd(),
+        sandboxMode: sandbox,
+        containerRunner,
+      });
 
       // Build runtime variables from CLI flags
       let vars: Record<string, unknown> = {};

@@ -6,7 +6,7 @@ title = "cloned-gitleaks"
 description = "Generic allowlist for placeholder strings and test paths"
 paths = [
   '''src/__tests__/.*\.test\.ts$''',
-  '''TRUST/examples/.*\.json$''',
+  '''docs/trust/examples/.*\.json$''',
   '''(LICENSE|README\.md|.*\.md)$'''
 ]
 regexes = [

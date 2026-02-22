@@ -69,7 +69,13 @@ export interface VaultStatus {
   healthy: boolean;
   message?: string;
   secret_count: number;
-  secrets: Array<{ name: string; last_modified?: string }>;
+  secrets: VaultSecret[];
+}
+
+export interface VaultSecret {
+  name: string;
+  last_modified?: string;
+  value?: string | null;
 }
 
 export interface DoctorCheck {
@@ -96,7 +102,26 @@ export interface PairingRecord {
   revoked_at: string | null;
 }
 
+export interface DocEntry {
+  path: string;
+  title: string;
+  description?: string;
+  audience: string[];
+  category: string;
+}
+
+async function requestText(path: string): Promise<string> {
+  const resp = await fetch(BASE + path);
+  if (!resp.ok) throw new Error(`Request failed: ${resp.status}`);
+  return resp.text();
+}
+
 export const api = {
+  docs: {
+    list: (audience?: string) =>
+      request<{ docs: DocEntry[] }>(`/docs${audience ? `?audience=${encodeURIComponent(audience)}` : ''}`),
+    getContent: (path: string) => requestText(`/docs/${path}`),
+  },
   workspace: {
     get: () => request<WorkspaceInfo>('/workspace'),
   },
@@ -126,6 +151,26 @@ export const api = {
   },
   vault: {
     status: () => request<VaultStatus>('/vault/status'),
+    list: (includeValues = false) =>
+      request<{ secrets: VaultSecret[] }>(
+        `/vault/secrets${includeValues ? '?include_values=1' : ''}`,
+      ),
+    get: (name: string) => request<VaultSecret>(`/vault/secrets/${encodeURIComponent(name)}`),
+    set: (name: string, value: string) =>
+      request<VaultSecret>(`/vault/secrets/${encodeURIComponent(name)}`, {
+        method: 'PUT',
+        body: JSON.stringify({ value }),
+      }),
+    delete: (name: string) =>
+      request<{ deleted: boolean }>(`/vault/secrets/${encodeURIComponent(name)}`, {
+        method: 'DELETE',
+      }),
+    export: () => request<{ secrets: Record<string, string> }>('/vault/secrets/export'),
+    import: (secrets: Record<string, string>) =>
+      request<{ imported: number }>('/vault/secrets/import', {
+        method: 'POST',
+        body: JSON.stringify({ secrets }),
+      }),
   },
   doctor: {
     run: () => request<DoctorReport>('/doctor'),

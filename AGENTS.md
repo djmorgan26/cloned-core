@@ -4,8 +4,8 @@
 - Core TypeScript in `src/` (ESM, Node 20+): `cli/`, `api/`, `runtime/`, `governance/`, `audit/`, `vault/`, `connector/`, `capability/`, `blueprint/`, `workspace/`.
 - Tests in `src/__tests__/` as `*.test.ts`.
 - UI (React + Vite) in `ui/`.
-- Schemas in `SCHEMAS/`, blueprints in `BLUEPRINTS/`, policies in `POLICY/`.
-- Plans and acceptance criteria in `PLAN/v1_acceptance_tests.md`.
+- Schemas in `schemas/`, blueprints in `blueprints/`, policies in `policy/`.
+- Plans and acceptance criteria in `docs/plan/v1-acceptance-tests.md`.
 
 ## Build, Test, and Development Commands
 - Install deps: `npm install`
@@ -36,7 +36,7 @@
 ## Security & Configuration
 - No secrets in git or logs; use the Vault APIs (`src/vault/*`) and `src/shared/redact.ts`.
 - Cost-incurring actions require explicit approval; provide `--dry-run` for all new commands and connectors.
-- Validate changes against `PLAN/v1_acceptance_tests.md` before merging.
+- Validate changes against `docs/plan/v1-acceptance-tests.md` before merging.
 
 ## Planning Docs Index
-- All planning and status documents live under `PLAN/`. Start at `PLAN/README.md` for an index and current status.
+- All planning and status documents live under `docs/plan/`. Start at `docs/plan/README.md` for an index and current status.

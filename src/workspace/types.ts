@@ -7,6 +7,9 @@ export interface WorkspaceConfig {
   vault_provider: string;
   created_at: string;
   version: string;
+  network?: {
+    egress_proxy?: string;
+  };
 }
 
 export interface ClonedPaths {

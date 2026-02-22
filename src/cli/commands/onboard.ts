@@ -27,7 +27,7 @@ export function registerOnboardCommand(program: Command): void {
       const blueprints = loadBlueprints();
 
       if (blueprints.length === 0) {
-        console.error('No blueprints found in BLUEPRINTS/ directory');
+        console.error('No blueprints found in blueprints/ directory');
         process.exit(1);
       }
 

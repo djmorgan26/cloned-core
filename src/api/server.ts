@@ -20,6 +20,7 @@ import { registerBudgetRoutes } from './routes/budgets.js';
 import { registerVaultRoutes } from './routes/vault.js';
 import { registerDoctorRoutes } from './routes/doctor.js';
 import { registerPairingRoutes } from './routes/pairings.js';
+import { registerDocsRoutes } from './routes/docs.js';
 import { registerPairingMiddleware } from './pairing-middleware.js';
 
 export interface ServerOptions {
@@ -98,6 +99,7 @@ export async function createServer(opts: ServerOptions = {}) {
   await registerVaultRoutes(fastify, routeOpts);
   await registerDoctorRoutes(fastify, routeOpts);
   await registerPairingRoutes(fastify, routeOpts);
+  await registerDocsRoutes(fastify);
 
   // Serve compiled UI if available
   const uiDir = join(__dirname, '../../dist/ui');
