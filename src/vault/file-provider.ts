@@ -51,7 +51,11 @@ export class FileVaultProvider implements VaultProvider {
   }
 
   async setSecret(key: string, value: string): Promise<void> {
-    this.store.secrets[key] = { value, updatedAt: new Date().toISOString() };
+    // Merge with on-disk state to prevent data loss when multiple processes write
+    const disk = this.load();
+    this.store = {
+      secrets: { ...disk.secrets, ...this.store.secrets, [key]: { value, updatedAt: new Date().toISOString() } },
+    };
     this.persist();
   }
 

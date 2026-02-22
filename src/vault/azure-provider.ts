@@ -16,14 +16,18 @@
  */
 import type { VaultProvider } from './types.js';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyClient = any;
+interface SecretClientLike {
+  setSecret(name: string, value: string): Promise<unknown>;
+  getSecret(name: string): Promise<{ value?: string }>;
+  beginDeleteSecret(name: string): Promise<unknown>;
+  listPropertiesOfSecrets(): AsyncIterable<{ name?: string; updatedOn?: Date }>;
+}
 
 export class AzureKeyVaultProvider implements VaultProvider {
   readonly name = 'azure';
-  private _client: AnyClient = null;
+  private _client: SecretClientLike | null = null;
 
-  private async client(): Promise<AnyClient> {
+  private async client(): Promise<SecretClientLike> {
     if (this._client) return this._client;
 
     const vaultUri = process.env['AZURE_KEYVAULT_URI'];
@@ -35,7 +39,7 @@ export class AzureKeyVaultProvider implements VaultProvider {
     }
 
     // Dynamic imports keep @azure packages as optional dependencies
-    let SecretClient: AnyClient, DefaultAzureCredential: AnyClient;
+    let SecretClient: new (uri: string, cred: unknown) => SecretClientLike, DefaultAzureCredential: new () => unknown;
     try {
       ({ SecretClient } = await import('@azure/keyvault-secrets' as string));
       ({ DefaultAzureCredential } = await import('@azure/identity' as string));
@@ -84,8 +88,8 @@ export class AzureKeyVaultProvider implements VaultProvider {
     const results: Array<{ name: string; lastModified?: string }> = [];
     for await (const props of c.listPropertiesOfSecrets()) {
       results.push({
-        name: props.name as string,
-        lastModified: (props.updatedOn as Date | undefined)?.toISOString(),
+        name: props.name ?? '',
+        lastModified: props.updatedOn?.toISOString(),
       });
     }
     return results;
@@ -96,7 +100,7 @@ export class AzureKeyVaultProvider implements VaultProvider {
       const c = await this.client();
       // Lightweight check: begin listing and immediately stop
       const iter = c.listPropertiesOfSecrets();
-      await iter.next();
+      await (iter[Symbol.asyncIterator]()).next();
       const uri = process.env['AZURE_KEYVAULT_URI'] ?? 'unknown';
       return { healthy: true, provider: 'azure', message: `Connected to ${uri}` };
     } catch (err: unknown) {

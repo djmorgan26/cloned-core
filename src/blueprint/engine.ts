@@ -1,4 +1,4 @@
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { load } from 'js-yaml';
@@ -28,23 +28,20 @@ export interface PlanOfRecord {
   markdown: string;
 }
 
-const BLUEPRINT_FILES = ['creator.yaml', 'researcher.yaml', 'builder.yaml', 'legal_research.yaml'];
-
 export function loadBlueprints(): Blueprint[] {
+  if (!existsSync(BLUEPRINTS_DIR)) return [];
+  const files = readdirSync(BLUEPRINTS_DIR).filter((f) => f.endsWith('.yaml'));
   const blueprints: Blueprint[] = [];
-
-  for (const file of BLUEPRINT_FILES) {
+  for (const file of files) {
     const filePath = join(BLUEPRINTS_DIR, file);
-    if (!existsSync(filePath)) continue;
     try {
       const raw = readFileSync(filePath, 'utf8');
       const parsed = load(raw) as Blueprint;
       blueprints.push(parsed);
-    } catch {
-      // Skip malformed blueprints
+    } catch (err) {
+      console.warn(`Skipping malformed blueprint ${file}: ${(err as Error).message}`);
     }
   }
-
   return blueprints;
 }
 
@@ -55,7 +52,7 @@ export function selectBlueprint(
   if (blueprints.length === 0) return null;
 
   // Score each blueprint by how many of its goals match user goals
-  let bestScore = -1;
+  let bestScore = 0;
   let best: Blueprint | null = null;
 
   for (const bp of blueprints) {

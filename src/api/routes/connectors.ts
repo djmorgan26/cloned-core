@@ -1,6 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import type Database from 'better-sqlite3';
-import type { WorkspaceConfig, ClonedPaths } from '../../workspace/types.js';
+import type { RouteOpts } from '../types.js';
 import {
   loadRegistry,
   saveRegistry,
@@ -8,12 +7,6 @@ import {
   disableConnector,
 } from '../../connector/registry.js';
 import { installConnector } from '../../connector/installer.js';
-
-interface RouteOpts {
-  db: Database.Database;
-  config: WorkspaceConfig | null;
-  paths: ClonedPaths;
-}
 
 export async function registerConnectorRoutes(fastify: FastifyInstance, opts: RouteOpts) {
   fastify.get('/v1/connectors', async (_req, _reply) => {

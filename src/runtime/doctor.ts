@@ -1,7 +1,10 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { execSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { load } from 'js-yaml';
 import { getClonedPaths } from '../workspace/paths.js';
+
+const _require = createRequire(import.meta.url);
 
 export type CheckStatus = 'pass' | 'fail' | 'warn';
 
@@ -114,9 +117,7 @@ export function runDoctorChecks(cwd?: string): DoctorReport {
         return { status: 'warn', message: 'state.db not found – skipping WAL check' };
       }
       try {
-        // Dynamically require better-sqlite3 (sync require avoids ESM async restrictions)
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const BetterSQLite3 = require('better-sqlite3') as { new(path: string, opts?: { readonly?: boolean }): { prepare: (sql: string) => { get: () => unknown }; close: () => void } };
+        const BetterSQLite3 = _require('better-sqlite3') as new(path: string, opts?: { readonly?: boolean }) => { prepare: (sql: string) => { get: () => unknown }; close: () => void };
         const db = new BetterSQLite3(paths.stateDb, { readonly: true });
         const row = db.prepare(`PRAGMA journal_mode`).get() as { journal_mode: string } | undefined;
         db.close();

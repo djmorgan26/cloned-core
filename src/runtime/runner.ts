@@ -2,7 +2,7 @@ import type Database from 'better-sqlite3';
 import { generateId } from '../shared/ids.js';
 import { appendAuditEntry } from '../audit/audit.js';
 import type { PolicyDecision, AuditOutcome } from '../audit/audit.js';
-import { checkBudget, recordBudgetUsage } from '../governance/budgets.js';
+import { checkBudget, checkAndRecordBudget } from '../governance/budgets.js';
 import { requiresApproval } from '../governance/policy.js';
 import { createApproval } from '../governance/approvals.js';
 import { logger } from '../shared/logger.js';
@@ -197,24 +197,31 @@ async function executeStep(
     };
   }
 
-  // Check budget
+  // Check budget (atomically record usage for real runs)
   const costEstimate = TOOL_COSTS[step.tool_id] ?? null;
+  if (!costEstimate) {
+    logger.debug('No cost estimate for tool – budget not enforced', { tool: step.tool_id });
+  }
   if (costEstimate) {
-    const budgetCheck = checkBudget(ctx.db, ctx.workspaceId, costEstimate);
+    const budgetCheck = ctx.dryRun
+      ? checkBudget(ctx.db, ctx.workspaceId, costEstimate)
+      : checkAndRecordBudget(ctx.db, ctx.workspaceId, costEstimate);
     if (!budgetCheck.allowed) {
       audit('deny', 'blocked');
       return { step_id: step.id, tool_id: step.tool_id, outcome: 'blocked', blocked_reason: budgetCheck.reason };
     }
   }
 
+  // In dry-run mode, simulate success without calling the handler
+  if (ctx.dryRun) {
+    logger.info('[DRY RUN] Would execute tool', { tool: step.tool_id });
+    audit('dry_run', 'dry_run');
+    return { step_id: step.id, tool_id: step.tool_id, outcome: 'success', output: { dry_run: true } };
+  }
+
   // Find handler
   const handler = toolHandlers.get(step.tool_id);
   if (!handler) {
-    if (ctx.dryRun) {
-      logger.info('[DRY RUN] Would execute tool (no handler registered)', { tool: step.tool_id });
-      audit('dry_run', 'dry_run');
-      return { step_id: step.id, tool_id: step.tool_id, outcome: 'success', output: { dry_run: true } };
-    }
     logger.warn('No tool handler registered', { tool: step.tool_id });
     return {
       step_id: step.id,
@@ -227,12 +234,8 @@ async function executeStep(
   try {
     const output = await handler(step.input);
 
-    if (costEstimate && !ctx.dryRun) {
-      recordBudgetUsage(ctx.db, ctx.workspaceId, costEstimate);
-    }
-
     const costs = costEstimate ? { [costEstimate.category]: costEstimate.amount } : undefined;
-    audit(ctx.dryRun ? 'dry_run' : 'allow', ctx.dryRun ? 'dry_run' : 'success', costs);
+    audit('allow', 'success', costs);
 
     return { step_id: step.id, tool_id: step.tool_id, outcome: 'success', output };
   } catch (err) {

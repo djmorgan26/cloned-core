@@ -113,22 +113,29 @@ export function buildCapabilityGraph(): CapabilityGraph {
 
 /**
  * Compute the full set of required capabilities (including prerequisites transitively).
+ * Detects circular prerequisites and throws an error.
  */
 export function resolveCapabilities(
   graph: CapabilityGraph,
   required: string[],
 ): string[] {
   const resolved = new Set<string>();
+  const visiting = new Set<string>();
 
   function resolve(id: string) {
     if (resolved.has(id)) return;
-    resolved.add(id);
+    if (visiting.has(id)) {
+      throw new Error(`Circular capability prerequisite detected: ${id}`);
+    }
+    visiting.add(id);
     const node = graph.capabilities.get(id);
     if (node) {
       for (const prereq of node.capability.prerequisites) {
         resolve(prereq);
       }
     }
+    visiting.delete(id);
+    resolved.add(id);
   }
 
   for (const id of required) {
@@ -140,6 +147,7 @@ export function resolveCapabilities(
 
 /**
  * Find the minimal set of connectors that cover a set of capabilities.
+ * Uses the graph instead of CONNECTOR_CAPABILITIES directly.
  */
 export function selectConnectors(
   graph: CapabilityGraph,
@@ -148,12 +156,21 @@ export function selectConnectors(
   const uncovered = new Set(capabilities);
   const selected: { connector: string; covers: string[] }[] = [];
 
-  // Greedy: pick the connector that covers the most uncovered capabilities
+  // Build connector->capabilities index from the graph
+  const connectorIndex = new Map<string, string[]>();
+  for (const [capId, node] of graph.capabilities) {
+    for (const connId of node.provided_by) {
+      const existing = connectorIndex.get(connId) ?? [];
+      existing.push(capId);
+      connectorIndex.set(connId, existing);
+    }
+  }
+
   while (uncovered.size > 0) {
     let bestConnector = '';
     let bestCoverage: string[] = [];
 
-    for (const [connId, caps] of Object.entries(CONNECTOR_CAPABILITIES)) {
+    for (const [connId, caps] of connectorIndex) {
       const covers = caps.filter((c) => uncovered.has(c));
       if (covers.length > bestCoverage.length) {
         bestConnector = connId;
@@ -161,7 +178,7 @@ export function selectConnectors(
       }
     }
 
-    if (!bestConnector || bestCoverage.length === 0) break; // Can't cover remaining
+    if (!bestConnector || bestCoverage.length === 0) break;
 
     selected.push({ connector: bestConnector, covers: bestCoverage });
     for (const c of bestCoverage) uncovered.delete(c);

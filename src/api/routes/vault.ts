@@ -1,14 +1,7 @@
 import type { FastifyInstance } from 'fastify';
-import type Database from 'better-sqlite3';
-import type { WorkspaceConfig, ClonedPaths } from '../../workspace/types.js';
+import type { RouteOpts } from '../types.js';
 import { getVaultProvider } from '../../vault/index.js';
 import { join } from 'node:path';
-
-interface RouteOpts {
-  db: Database.Database;
-  config: WorkspaceConfig | null;
-  paths: ClonedPaths;
-}
 
 export async function registerVaultRoutes(fastify: FastifyInstance, opts: RouteOpts) {
   const vaultFilePath = join(opts.paths.root, 'vault.dev.json');

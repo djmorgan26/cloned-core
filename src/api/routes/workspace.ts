@@ -1,13 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import type { WorkspaceConfig } from '../../workspace/types.js';
-import type { ClonedPaths } from '../../workspace/types.js';
-import type Database from 'better-sqlite3';
-
-interface RouteOpts {
-  db: Database.Database;
-  config: WorkspaceConfig | null;
-  paths: ClonedPaths;
-}
+import type { RouteOpts } from '../types.js';
 
 export async function registerWorkspaceRoutes(fastify: FastifyInstance, opts: RouteOpts) {
   fastify.get('/v1/workspace', async (_req, reply) => {

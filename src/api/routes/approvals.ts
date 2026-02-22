@@ -1,21 +1,15 @@
 import type { FastifyInstance } from 'fastify';
-import type Database from 'better-sqlite3';
-import type { WorkspaceConfig, ClonedPaths } from '../../workspace/types.js';
+import type { RouteOpts } from '../types.js';
+import { getWorkspaceId } from '../types.js';
 import {
   listApprovals,
   decideApproval,
   getApproval,
 } from '../../governance/approvals.js';
 
-interface RouteOpts {
-  db: Database.Database;
-  config: WorkspaceConfig | null;
-  paths: ClonedPaths;
-}
-
 export async function registerApprovalRoutes(fastify: FastifyInstance, opts: RouteOpts) {
   fastify.get('/v1/approvals', async (req) => {
-    const ws = opts.config?.workspace_id ?? 'default';
+    const ws = getWorkspaceId(opts.config);
     const query = req.query as { status?: string };
     const filter = query.status
       ? { status: query.status as 'pending' | 'approved' | 'denied' }
@@ -24,7 +18,7 @@ export async function registerApprovalRoutes(fastify: FastifyInstance, opts: Rou
   });
 
   fastify.get<{ Params: { id: string } }>('/v1/approvals/:id', async (req, reply) => {
-    const ws = opts.config?.workspace_id ?? 'default';
+    const ws = getWorkspaceId(opts.config);
     const approval = getApproval(opts.db, ws, req.params.id);
     if (!approval) return reply.status(404).send({ error: 'Approval not found' });
     return approval;
@@ -34,7 +28,7 @@ export async function registerApprovalRoutes(fastify: FastifyInstance, opts: Rou
     '/v1/approvals/:id/decide',
     { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } },
     async (req, reply) => {
-      const ws = opts.config?.workspace_id ?? 'default';
+      const ws = getWorkspaceId(opts.config);
       const body = req.body as { decision?: 'approved' | 'denied'; reason?: string };
 
       if (!body.decision || !['approved', 'denied'].includes(body.decision)) {
