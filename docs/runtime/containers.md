@@ -12,8 +12,9 @@ Goals
 - Keep the model on loopback; block unintended outbound calls via policy.
 
 Quick Start
+- Run `cloned setup`, choose **Docker** mode, then select "Launch Docker stack" to have the wizard run `docker compose -f docker/compose.local-llm.yaml up -d` for you; or follow the manual steps below.
 - See docker/compose.local-llm.yaml (LocalAI, OpenAI‑compatible on :8080).
-- export LLM_API_BASE=http://localhost:8080/v1 and set LLM_API_KEY (or vault: llm.api_key).
+- After the container is up, run `cloned setup` → "Run doctor" → "Guide me through a fix" → "LLM API key configured" and pick **LocalAI**. The wizard will set `llm.api_key=local-dev`, `llm.api_base=http://127.0.0.1:8080/v1`, and remind you to keep the stack running before pipelines execute. You can still export `LLM_API_BASE=http://localhost:8080/v1` manually if you prefer.
 
 LocalAI Container Security (v1)
 - Ports: mapped as `127.0.0.1:8080:8080` so the model API is reachable only from the host.

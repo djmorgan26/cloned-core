@@ -32,24 +32,27 @@ Cloned lets you run AI-powered pipelines (research, content creation, GitHub aut
 # 1. Install dependencies
 npm install
 
-# 2. Initialize a workspace
-npx cloned init --type personal
+# 2. Run the setup wizard (workspace → doctor → Azure vault)
+npx cloned setup
 
-# 3. Check environment health
-npx cloned doctor
-
-# 4. Set your LLM API key (required for researcher pipeline)
+# 3. Configure your LLM provider (OpenAI, Azure OpenAI, LocalAI, Ollama, custom)
+# Use the wizard's doctor → "LLM API key" fixer or run the vault commands directly:
 npx cloned vault set llm.api_key sk-...
 
-# 5. Run a research report
+# 4. Run a research report
 npx cloned run pipeline.research.report --topic "solar energy storage breakthroughs"
 
-# 6. Start the Command Center UI (separate terminal)
+# 5. Start the Command Center UI (separate terminal)
 npx cloned serve
 # Open http://127.0.0.1:7800
 ```
 
+`cloned setup` is resumable—rerun it anytime and jump directly to the step you need (e.g., skip init and go straight to Azure Key Vault). The wizard opens with a system check (Node/npm/Docker, CPU/RAM) and defaults to the Docker install path. When doctor finds a problem it now offers guided fixes (e.g., run `chmod 700 .cloned`, rebuild `better-sqlite3`, configure your LLM provider) instead of dumping errors and leaving you stuck, so humans and AI assistants follow the exact same remediation flow. Choosing Docker mode inserts a "Launch Docker stack" step that runs `docker compose -f docker/compose.local-llm.yaml up -d` for you and prints the `LLM_API_BASE`/`LLM_API_KEY` exports needed for the hardened LocalAI container. The LLM provider fixer then lets you pick OpenAI, Azure OpenAI, LocalAI, Ollama, or any custom OpenAI-compatible endpoint—complete with LocalAI container detection, Ollama auto-install/model prompts, and hardware guidance so non-technical users can still get through setup. Press `Ctrl+C` at any point and the wizard finishes the in-flight step (if any), prints your current status, and exits so you can safely resume later.
+
+> **Workspace scope:** Every command reads the workspace in the **current working directory**. Run the CLI from the folder that contains `.cloned/` (or `npx cloned init` will create it there). You can install the package globally (`npm install -g .`) or invoke it with `npx`, but the commands always act on the cwd—no Docker shell required unless you explicitly use the container sandbox. That applies to `cloned vault bootstrap azure --interactive` too: run it (or `cloned setup`) from whichever directory owns the `.cloned/` workspace you want to change. For hardened deployments we still recommend running inside Docker (`docs/docker/README.md`); the setup wizard warns when you run it outside a container and encourages you back onto the containerized path.
+
 See [getting-started.md](./getting-started.md) for a full walkthrough.
+
 
 Planning and Status
 - All planning docs are indexed at [docs/plan/README.md](docs/plan/README.md) (workplan, acceptance tests, security, integration).
@@ -74,11 +77,16 @@ Cloned inherited the "gateway" inspiration from OpenClaw: every outbound HTTP ca
 |---------|-------------|
 | `cloned init [--type personal\|shared\|enterprise]` | Initialize workspace in current directory |
 | `cloned doctor` | Check environment and diagnose issues |
+| `cloned setup` | Interactive onboarding wizard (init → doctor → Azure vault) |
 | `cloned onboard [--goal "..."]` | Interactive blueprint selection |
 | `cloned run <pipeline> [--topic "..."] [--dry-run] [--sandbox container]` | Run a pipeline (optionally inside the Docker sandbox) |
 | `cloned connect github` | Connect GitHub via OAuth device flow |
+| `cloned connect github --complete-install --installation-id <id> --app-id <appId> --private-key-path <pem>` | Record GitHub App installation + store credentials in the vault |
 | `cloned connect youtube` | Connect YouTube via OAuth device flow |
+| `cloned vault status` | Show which provider is active and list secret references |
 | `cloned vault set <key> <value>` | Store a secret in the vault |
+| `cloned vault provider <dev\|file\|azure>` | Switch the workspace vault backend |
+| `cloned vault bootstrap azure [--interactive] [--output json]` | Generate Azure CLI steps (wizard mode available) + env exports for BYO Key Vault |
 | `cloned approvals list` | View pending approvals |
 | `cloned serve` | Start the API server + Command Center UI |
 | `cloned firewall proxy [--set <url> | --clear]` | Inspect or configure the HTTP proxy used by sandboxed connectors |

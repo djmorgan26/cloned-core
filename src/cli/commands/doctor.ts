@@ -5,10 +5,10 @@ export function registerDoctorCommand(program: Command): void {
   program
     .command('doctor')
     .description('Check environment health and diagnose issues')
-    .action(() => {
+    .action(async () => {
       console.log('Running Cloned environment checks...\n');
 
-      const report = runDoctorChecks();
+      const report = await runDoctorChecks();
 
       for (const check of report.checks) {
         const icon = check.status === 'pass' ? '✓' : check.status === 'warn' ? '⚠' : '✗';

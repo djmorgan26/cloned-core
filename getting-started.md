@@ -8,7 +8,7 @@ This guide walks you through installing, initializing, and running your first pi
 
 - **Node.js 20+** – check with `node --version`
 - **npm 9+** – bundled with Node.js
-- An **LLM API key** (OpenAI-compatible) for the synthesis step; get one at [platform.openai.com](https://platform.openai.com)
+- Access to an **OpenAI-compatible LLM endpoint** – this can be a hosted provider (OpenAI, Azure OpenAI, Groq, Together, etc.), the hardened LocalAI Docker stack, or a local runtime such as Ollama. The setup wizard will guide you through whichever option fits your hardware and security posture.
 
 ## Bring your own connector credentials
 
@@ -37,6 +37,22 @@ Otherwise prefix all commands with `npx`:
 ```bash
 npx cloned --version
 ```
+
+> **Workspace scope:** Run all `cloned` commands from the directory that contains your `.cloned/` workspace. Installing globally (`npm install -g .`) simply saves you from typing `npx`, but the CLI still inspects the current working directory for `.cloned/`. You do **not** need Docker just to run the CLI—Docker only comes into play when you opt into sandboxed connector execution—but we still recommend dockerizing Cloned for production/hardened setups, and the setup wizard will warn you when you’re running outside a container.
+
+---
+
+## Setup wizard (recommended)
+
+Run the guided wizard to walk through workspace initialization, doctor checks, and Azure Key Vault configuration in a single session:
+
+```bash
+cloned setup
+```
+
+The wizard shows one step at a time and lets you skip, rerun, or jump directly to a later step (e.g., rerun it tomorrow just to reconnect Azure). When prerequisites are missing it blocks progress with friendly guidance ("install Docker first"), and the doctor step now has built-in fixers—approve a prompt to `chmod 700 .cloned`, rebuild `better-sqlite3`, or walk through the new LLM provider wizard without leaving the flow. Pick the Docker option at the start to unlock the "Launch Docker stack" step, which runs `docker compose -f docker/compose.local-llm.yaml up -d` for you, tears it down on demand, and prints the `LLM_API_BASE`/`LLM_API_KEY` exports required to point Cloned at the loopback LocalAI container. The LLM provider wizard reuses that state, automatically detecting if the LocalAI container is online, checking whether Ollama is already installed, and offering to install Ollama plus starter models (Meta Llama 3, Mistral Small) when it is not. The UI onboarding will mirror this exact checklist so both humans and AI assistants can follow the same remediation path.
+
+> Run `cloned setup`, `cloned doctor`, or `cloned vault bootstrap azure --interactive` from any directory that contains the `.cloned/` workspace you want to operate on. Installing the CLI globally (`npm install -g .`) means you can type `cloned setup` from anywhere; during development you can stick with `npx` inside the repo root.
 
 ---
 
@@ -86,18 +102,41 @@ Fix any failures before proceeding.
 
 ---
 
-## Step 3: Configure your LLM API key
+## Step 3: Configure your LLM provider
+
+The `cloned setup → Run doctor checks → Guide me through a fix → LLM API key configured` flow now asks which provider you plan to use:
+
+- **OpenAI** – paste your API key and the wizard stores both `llm.api_key` and `llm.api_base=https://api.openai.com/v1`.
+- **Azure OpenAI** – enter your resource, deployment, and API version; the wizard builds the correct deployment URL (with `?api-version=...`) and stores it alongside your key.
+- **LocalAI (Docker)** – if you launched the docker stack in the previous step the wizard confirms the container is reachable, inserts the default `LLM_API_BASE=http://127.0.0.1:8080/v1`, and saves a placeholder key (`local-dev`).
+- **Ollama** – the wizard checks whether the CLI is installed, optionally installs it via Homebrew, prompts you to pull starter models, and sets `llm.api_base=http://127.0.0.1:11434/v1` so pipelines can hit your local runtime.
+- **Custom OpenAI-compatible** – great for providers like Groq, Together, LM Studio, or anything else that implements the `/chat/completions` contract.
+
+> Tip: type `:back` at any secret prompt to return to the provider list, or press `Ctrl+C` to abort the wizard safely after the current step completes.
+
+Prefer a manual workflow? You can still run vault commands directly:
 
 ```bash
+# OpenAI (or any hosted OpenAI-compatible):
 cloned vault set llm.api_key sk-...
+cloned vault set llm.api_base https://api.openai.com/v1
+
+# Azure OpenAI (resource "contoso-ai", deployment "gpt-4o-mini"):
+cloned vault set llm.api_key <azure-openai-key>
+cloned vault set \
+  llm.api_base \
+  "https://contoso-ai.openai.azure.com/openai/deployments/gpt-4o-mini?api-version=2024-02-15-preview"
+
+# LocalAI docker stack launched by cloned setup:
+cloned vault set llm.api_key local-dev
+cloned vault set llm.api_base http://127.0.0.1:8080/v1
+
+# Ollama (local runtime on port 11434):
+cloned vault set llm.api_key ollama-local
+cloned vault set llm.api_base http://127.0.0.1:11434/v1
 ```
 
-The key is stored in `.cloned/vault.dev.json`. It is never logged or returned by the API.
-
-To use a custom LLM endpoint (e.g., a local Ollama server):
-```bash
-cloned vault set llm.api_base http://localhost:11434/v1
-```
+All secrets live inside `.cloned/vault.*`. They never hit git or the API responses.
 
 ---
 
@@ -204,18 +243,47 @@ cloned run pipeline.creator.youtube --input '{"topic":"AI tools for developers",
 
 ## Azure Key Vault (production)
 
-For production use, store secrets in Azure Key Vault instead of the local file:
+Use the Azure Key Vault provider when you need real secrets hygiene. Run the bootstrap helper to generate an exact script (AI-friendly via `--output json`):
 
 ```bash
-# Install the optional Azure packages
-npm install @azure/keyvault-secrets @azure/identity
+# Tailor the plan to your workspace (names can be overridden)
+cloned vault bootstrap azure \
+  --vault-name my-cloned-vault \
+  --resource-group rg-cloned-prod \
+  --location eastus
 
-# Set vault URI (use your actual vault name)
-export AZURE_KEYVAULT_URI=https://my-vault.vault.azure.net/
+# Prefer the interactive wizard if you want the CLI to prompt after each step
+cloned vault bootstrap azure --interactive
 
-# Switch provider (uses DefaultAzureCredential – works with az login, managed identity, etc.)
-cloned vault set --provider azure
+# Prefer machine-readable output for AI agents:
+cloned vault bootstrap azure --output json > azure-plan.json
 ```
+
+The helper prints the Azure CLI commands you run in your own tenant. When it asks for a "Service principal display name" you can enter a new label or reuse the name of an existing Azure AD app—step 3 below simply needs a value to feed into `az ad sp create-for-rbac`. The wizard now ensures your CLI is authenticated (it will launch `az login --use-device-code` if needed) *before* it asks for anything, and then it enumerates existing Key Vaults in the detected subscription so you can adopt one with a single selection. If you pick an existing vault the creation steps are skipped automatically, but you can opt to create something new just as easily. Expired tokens are handled too: if Azure CLI returns an `az login` prompt mid-run, the wizard keeps you in-place and guides you through the device-code flow.
+
+1. `az group create --name <resource-group> --location <region>`
+2. `az keyvault create --name <vault-name> --resource-group <resource-group> --location <region> --enable-rbac-authorization true`
+3. `az ad sp create-for-rbac --name <app-name> --role "Key Vault Secrets Officer" --scopes /subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.KeyVault/vaults/<vault-name>` (or reuse an existing principal with the same name and role assignment)
+4. Export the credentials the command prints (see table below).
+5. `cloned vault provider azure`
+6. `cloned vault status` (verifies connectivity without ever showing secret values)
+
+In interactive mode the CLI walks you through steps 1–4 (confirming each), asks for the `appId/tenant/password` you just received, and then runs steps 5–6 automatically so you finish with a verified Azure Key Vault. If the Azure CLI is installed locally you can let the wizard launch each `az` command for you; it will even capture the JSON output from `az ad sp create-for-rbac` so the credentials are filled in automatically. Otherwise you can continue running the commands manually in Cloud Shell or a separate terminal.
+
+| Variable | Where it comes from | Example |
+| --- | --- | --- |
+| `AZURE_KEYVAULT_URI` | `https://<vault-name>.vault.azure.net/` (same as the vault you created) | `https://my-cloned-vault.vault.azure.net/` |
+| `AZURE_CLIENT_ID` | `appId` field from step 3 output | `6f8198b0-...` |
+| `AZURE_TENANT_ID` | `tenant` field from step 3 output | `72f988bf-...` |
+| `AZURE_CLIENT_SECRET` | `password` field from step 3 output (store in your password manager) | `abc123...` |
+
+Install the optional SDKs if they are not already present:
+
+```bash
+npm install @azure/keyvault-secrets @azure/identity
+```
+
+DefaultAzureCredential honors `az login`, workload identity, or the exported client ID/secret. No Azure secrets ever leave your machine; the helper simply prints commands for you to run.
 
 ---
 

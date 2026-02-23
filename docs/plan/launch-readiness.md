@@ -35,21 +35,18 @@ Branch: `claude/fix-gitleaks-ci-launch-plan-ZxbB4`
 - **YouTube connector auth module** – device OAuth flow code
 
 ### Scaffolded / Partially Implemented
-- **`cloned onboard`** – command exists; conversational blueprint selection flow needs real prompts wired to capability graph
-- **`cloned connect`** – command exists; GitHub and YouTube have auth modules but the CLI command doesn't complete the full flow (token storage to vault, state persistence to DB)
-- **`cloned run`** – command exists; pipeline runner is implemented but tool handlers are not registered (no real tool implementations behind `cloned.mcp.web.search@v1`, `cloned.internal.synthesis@v1`, etc.)
-- **`cloned vault`** – command exists; dev provider works; Azure Key Vault provider dynamically imported but `@azure/keyvault-secrets` and `@azure/identity` are not in `package.json`
-- **`cloned doctor`** – command exists; doctor route registered; actual check implementations need to be fleshed out
-- **Device pairing** – pairing route registered and UI page exists; the pairing enforcement middleware is not wired into the API (requests aren't actually rejected for unpaired devices)
+- **`cloned onboard`** – command exists; conversational blueprint selection flow still needs prompts wired into the capability graph traversal
+- **`cloned connect`** – GitHub/YouTube device flows run today and tokens are stored in the vault, but the CLI never records connector state in SQLite or completes the install state machine
+- **`cloned run`** – the researcher pipeline runs end-to-end (web search + synthesis + artifact save) once an LLM key is present, while builder/creator pipelines still reference future tools
+- **`cloned vault`** – dev provider works and the Azure Key Vault provider ships with optional dependencies, but we still need docs/tests for BYO vault configuration
+- **`cloned doctor`** – CLI surfaces the implemented checks (Node version, WAL mode, vault, allowlists, etc.); deeper networking/doctor-plan checks remain TODO
+- **Device pairing** – pairing route registered and UI page exists; the enforcement middleware is not wired into the API (requests aren't actually rejected for unpaired devices)
 - **Capability graph** – schema exists; `src/capability/` module exists; the runtime graph traversal for blueprint recommendation is not connected to onboard flow
 - **UI** – all pages exist and make API calls; no visual polish, no loading/error states, no auth (device pairing) enforcement in the UI
 
 ### Not Yet Started
-- **Real tool implementations** – the pipeline runner registers tool handlers, but no actual handlers are wired up (web search, GitHub issue create/PR create, YouTube upload, synthesis)
-- **Azure Key Vault integration** – dynamic import path exists but the azure packages are absent
 - **GitHub App server-side** – installation token exchange, webhook handling, and App credential storage need implementation
 - **YouTube publish flow** – the assist-mode pipeline and the approval-gated publish path are defined but not implemented end-to-end
-- **`cloned doctor` checks** – the spec in `[docs/doctor/doctor-checks.md](../doctor/doctor-checks.md)` defines prereq checks; these need to actually run (Node version, SQLite, vault reachability, etc.)
 - **Crash recovery testing** – WAL recovery and audit chain integrity on restart
 - **Submodule repos** – `directions.md` calls for cloned-runtime, cloned-connectors, cloned-knowledge as separate repos; these do not exist; everything lives in cloned-core for now
 - **Documentation for external users** – no onboarding guide, no connector dev guide, no user-facing README
@@ -66,15 +63,15 @@ Branch: `claude/fix-gitleaks-ci-launch-plan-ZxbB4`
 | C: Budgets enforced, approvals queue, audit chain, egress allowlists | ✅ Core logic done; egress not enforced at HTTP layer yet | Partial |
 | D: Capability graph goal→capability mapping | ⚠️ Schema + module stub; traversal not wired | Yes |
 | E: Blueprint selection + Plan of Record output | ⚠️ Blueprints exist; onboard flow incomplete | Yes |
-| F: Vault (Azure BYOV + dev fallback) | ⚠️ Dev works; Azure deps missing | Yes |
+| F: Vault (Azure BYOV + dev fallback) | ⚠️ Dev + Azure providers implemented; needs docs/tests | Partial |
 | G: Connector signing/install/reject | ✅ Implemented | — |
 | H: Connector runtime tool schema exposure | ⚠️ Registry works; tool schema serving not wired | Yes |
 | I: GitHub connector state machine | ⚠️ Auth code exists; CLI flow incomplete, token not persisted | Yes |
 | J: YouTube connector | ⚠️ Auth code exists; assist-mode + approval gate not end-to-end | Yes |
-| K: Skills (constitution enforcement, violation audit) | ⚠️ Runner has gating; no real tools behind steps | Yes |
-| L: Pipelines + artifact provenance | ⚠️ Runner works; no real artifact output | Yes |
+| K: Skills (constitution enforcement, violation audit) | ⚠️ Researcher tools wired (search, synth, artifact); creator/builder still stubbed | Partial |
+| L: Pipelines + artifact provenance | ⚠️ Researcher pipeline produces markdown artifacts; creator/builder pending | Partial |
 | M: Command Center UI (real state, no secrets, pairing enforced) | ⚠️ UI exists; pairing not enforced; no real tool data | Yes |
-| N: Doctor checks + hardening | ⚠️ Command exists; checks not implemented | Yes |
+| N: Doctor checks + hardening | ⚠️ Baseline checks implemented; need container/ports coverage | Partial |
 
 ---
 
@@ -104,15 +101,15 @@ The pairing route exists, the UI page exists, but nothing actually checks whethe
 
 ---
 
-### Step 3 – Implement `cloned connect github` End-to-End (2–3 days)
-The state machine and device flow code exist. Need to close the loop.
+### Step 3 – Complete `cloned connect github` State + Installation Flow (2–3 days)
+Device flows already issue tokens and stash them in the vault; CLI support for installation IDs/App creds now exists. Remaining work: surface this in the UI and tighten docs/tests.
 
 **Tasks:**
-- `cloned connect github`: run device flow → poll for token → store token in vault → persist state to DB (`github_auth_state` table or workspace config)
-- Implement `getInstallationToken(installationId)` using stored App credentials
-- Wire GitHub App installation guide to CLI (`cloned connect github --install-app`)
-- Register GitHub tool handlers (`github.issue.create@v1`, `github.pr.create@v1`) backed by real GitHub API calls using installation tokens
-- Acceptance test: `cloned connect github --dry-run` shows plan; real flow transitions state machine to AppActive
+- ✅ Persist connector state in SQLite (device auth → installation selected → AppActive) and expose helper APIs (`connector_state` table).
+- ✅ Add `cloned connect github --complete-install ...` so the CLI can capture installation IDs + permissions when the user finishes the GitHub App flow.
+- ✅ Exchange stored App credentials for short-lived installation tokens and prefer them inside GitHub tool handlers; fallback to OAuth only if the install token fetch fails.
+- ⚠️ UI: mirror the new CLI flow – once the user installs the App, show the installation ID + prompt for PEM upload, then call the same completion path.
+- ⚠️ Acceptance test/docs: scripted test (or smoke script) proving `cloned connect github` transitions through UserAuthed/AppInstalled/AppActive with DB rows plus audit entries; document the GitHub settings locations for installation IDs + private keys (see `docs/connectors/github-auth-strategy.md`).
 
 ---
 
@@ -127,39 +124,36 @@ Capability graph traversal + blueprint selection + Plan of Record.
 
 ---
 
-### Step 5 – Implement `cloned doctor` Checks (1 day)
-Per `[docs/doctor/doctor-checks.md](../doctor/doctor-checks.md)`.
+### Step 5 – Extend `cloned doctor` Coverage (1 day)
+Baseline checks (Node version, WAL mode, vault, registry, API bind) already run; now add the container + network guardrails described in `[docs/doctor/doctor-checks.md](../doctor/doctor-checks.md)`.
 
 **Tasks:**
-- Node.js version >= 20
-- SQLite DB exists and WAL mode confirmed
-- `.cloned/` directory permissions (700)
-- Vault reachability (dev: file exists; azure: can list secrets)
-- Connector signature trust roots present
-- API server health endpoint reachable
-- Print actionable fix steps for each failing check
+- Verify Docker is installed and meets the sandbox requirements (rootless, version, compose file knobs)
+- Check `.cloned/trust` contents for connector signing roots + schema integrity
+- Call the API health endpoint through the configured host/port and fail if it cannot be reached
+- Add an opt-in `doctor ports` subcommand that inspects active sockets vs. the port governance plan (even if it only warns for now)
 
 ---
 
-### Step 6 – Real Tool Handlers for Researcher Pipeline (2–3 days)
-At least one end-to-end pipeline must actually run. Researcher is the lowest-risk (no external writes, no publish).
+### Step 6 – Researcher Pipeline QA + Demo (2 days)
+Search, synthesis, and artifact-save tools exist; now prove the path is stable.
 
 **Tasks:**
-- `cloned.mcp.web.search@v1`: implement using a configurable search provider (DuckDuckGo API or similar, no key required for basic search)
-- `cloned.internal.synthesis@v1`: call a configured LLM (user provides key via vault; model is configurable). This is where the actual "agent" call happens
-- `cloned.internal.artifact.save@v1`: write markdown to `.cloned/artifacts/` with manifest JSON
-- `cloned run researcher --topic "..."` should produce a real markdown report
+- Add an integration test (or scripted smoke test) that registers the built-in tools, runs `pipeline.research.report` with mocked fetch/LLM responses, and asserts that an artifact manifest + file are written
+- Document the LocalAI Docker flow + required vault keys in `getting-started.md`, linking to it from the README quick start
+- Capture a sample markdown artifact (or screenshot) to reference in docs + onboarding so users know what "success" looks like
 
 ---
 
-### Step 7 – Azure Key Vault Provider (1–2 days)
-The dynamic import path is ready; just need the packages and proper credential handling.
+### Step 7 – Azure Key Vault BYOV Hardening (1–2 days)
+The provider + optional dependencies are in place; we still need docs/test coverage so BYOV users can rely on it.
 
 **Tasks:**
-- Add `@azure/keyvault-secrets` and `@azure/identity` to `package.json` (optional peer dependency or separate install step)
-- Complete `AzureKeyVaultProvider` in `src/vault/azure-provider.ts`
-- `cloned vault set --provider azure` switches provider
-- Test: secret written to Azure KV, reference stored in workspace config, value never logged
+- ✅ CLI exposes `cloned vault status`, `cloned vault provider`, and `cloned vault bootstrap azure` so users (and AI assistants) can generate step-by-step Azure scripts and verify connectivity (`getting-started.md` now includes the recipe).
+- ✅ `cloned setup` wizard chains workspace init → doctor → Azure onboarding with per-step resume (UI must expose the same steps for parity).
+- Add README + doctor guidance for configuring `AZURE_KEYVAULT_URI`/DefaultAzureCredential and switching providers via `cloned vault`
+- Write a Jest smoke test that mocks the Azure SDK client and asserts that `AzureKeyVaultProvider` maps dotted keys to hyphenated names + handles SecretNotFound
+- Monitor the new CLI sanity check (`cloned vault status`) in docs/doctor output and add automated coverage if regressions appear
 
 ---
 
@@ -178,9 +172,9 @@ The UI structure is correct. It needs to actually show meaningful state.
 
 ### Step 9 – YouTube Connector + Creator Pipeline (2–3 days)
 **Tasks:**
-- `cloned connect youtube`: device OAuth flow → token to vault → state to DB
-- `cloned run creator`: generate video script/description/tags → save as artifact (assist mode, no upload)
-- YouTube upload path: requires explicit approval in queue; `cloned approvals list` + `cloned approvals approve <id>` then triggers upload
+- Persist YouTube connector state (assist vs. publish mode, channel selection) to SQLite instead of keeping it implicit
+- `cloned run pipeline.creator.youtube`: reuse the existing research + video package steps, emit artifacts, and surface pending approvals when uploads are requested
+- Wire the approval gate so that a publish attempt creates an approval record and, once approved, the upload tool runs with real HTTP calls (still sandboxed/proxied)
 
 ---
 
@@ -208,11 +202,11 @@ The UI structure is correct. It needs to actually show meaningful state.
 ```
 1. Egress → HTTP enforcement
 2. Device pairing enforcement
-3. cloned connect github (end-to-end)
+3. cloned connect github (state + installation)
 4. cloned onboard (capability graph + blueprint selection)
-5. cloned doctor (real checks)
-6. Researcher pipeline runs for real
-7. Azure KV vault
+5. cloned doctor (container/network coverage)
+6. Researcher pipeline QA + demo assets
+7. Azure KV BYOV hardening
 8. UI polish + real data
 9. YouTube connector + creator pipeline
 10. Docs + happy path README

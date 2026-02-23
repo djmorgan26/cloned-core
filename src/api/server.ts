@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { getClonedPaths } from '../workspace/paths.js';
 import { openDb } from '../workspace/db.js';
 import { readWorkspaceConfig } from '../workspace/config.js';
+import { loadWorkspaceEnv } from '../workspace/env.js';
 import { loadPolicyPack } from '../governance/policy.js';
 import { logger } from '../shared/logger.js';
 
@@ -30,6 +31,7 @@ export interface ServerOptions {
 }
 
 export async function createServer(opts: ServerOptions = {}) {
+  loadWorkspaceEnv(opts.cwd ?? process.cwd());
   const host = opts.host ?? process.env['CLONED_API_HOST'] ?? '127.0.0.1';
   const port = opts.port ?? parseInt(process.env['CLONED_API_PORT'] ?? '7800', 10);
 

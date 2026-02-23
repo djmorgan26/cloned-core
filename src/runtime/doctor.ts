@@ -1,8 +1,11 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
-import { execSync } from 'node:child_process';
+import { execSync, spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { load } from 'js-yaml';
 import { getClonedPaths } from '../workspace/paths.js';
+import { readWorkspaceConfig } from '../workspace/config.js';
+import { getVaultProvider } from '../vault/index.js';
+import { loadWorkspaceEnv } from '../workspace/env.js';
 
 const _require = createRequire(import.meta.url);
 
@@ -21,12 +24,16 @@ export interface DoctorReport {
   summary: string;
 }
 
-function check(
+async function check(
   name: string,
-  fn: () => { status: CheckStatus; message: string; fix?: string },
-): DoctorCheck {
+  fn: () => Promise<{ status: CheckStatus; message: string; fix?: string }> | {
+    status: CheckStatus;
+    message: string;
+    fix?: string;
+  },
+): Promise<DoctorCheck> {
   try {
-    const result = fn();
+    const result = await Promise.resolve(fn());
     return { name, ...result };
   } catch (err) {
     return {
@@ -46,13 +53,87 @@ function commandExists(cmd: string): boolean {
   }
 }
 
-export function runDoctorChecks(cwd?: string): DoctorReport {
+interface OllamaDetection {
+  installed: boolean;
+  version?: string;
+  models: string[];
+}
+
+function detectOllamaCli(): OllamaDetection {
+  try {
+    const versionResult = spawnSync('ollama', ['--version'], {
+      stdio: ['ignore', 'pipe', 'ignore'],
+      encoding: 'utf8',
+    });
+    if (versionResult.error || versionResult.status !== 0) {
+      return { installed: false, models: [] };
+    }
+    const listResult = spawnSync('ollama', ['list'], {
+      stdio: ['ignore', 'pipe', 'ignore'],
+      encoding: 'utf8',
+    });
+    let models: string[] = [];
+    if (!listResult.error && listResult.status === 0) {
+      models = parseOllamaList(listResult.stdout || '');
+    }
+    return { installed: true, version: versionResult.stdout.trim(), models };
+  } catch {
+    return { installed: false, models: [] };
+  }
+}
+
+function parseOllamaList(output: string): string[] {
+  return output
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .filter((line) => !/^(name|model)\b/i.test(line))
+    .map((line) => (line.split(/\s+/)[0] ?? '').trim())
+    .filter((name) => name.length > 0);
+}
+
+function detectLocalAiContainer(): boolean {
+  try {
+    const result = spawnSync('docker', ['ps', '--filter', 'name=cloned-localai', '--format', '{{.ID}}'], {
+      stdio: ['ignore', 'pipe', 'ignore'],
+      encoding: 'utf8',
+    });
+    if (result.error || result.status !== 0) return false;
+    return result.stdout.trim().length > 0;
+  } catch {
+    return false;
+  }
+}
+
+function describeLocalLlmOptions(): string | null {
+  const hints: string[] = [];
+  const ollama = detectOllamaCli();
+  if (ollama.installed) {
+    const modelList = ollama.models.slice(0, 3).join(', ');
+    const suffix = ollama.models.length > 3 ? ', …' : '';
+    const detail = modelList ? `models: ${modelList}${suffix}` : 'no models pulled yet';
+    hints.push(`Ollama ${ollama.version ?? ''} (${detail})`);
+  }
+  if (detectLocalAiContainer()) {
+    hints.push('LocalAI Docker stack detected (container name matches cloned-localai)');
+  }
+  return hints.length ? hints.join('; ') : null;
+}
+
+export async function runDoctorChecks(cwd?: string): Promise<DoctorReport> {
+  loadWorkspaceEnv(cwd ?? process.cwd());
   const paths = getClonedPaths(cwd);
+  let config: ReturnType<typeof readWorkspaceConfig> | null = null;
+  try {
+    config = readWorkspaceConfig(paths.config);
+  } catch {
+    config = null;
+  }
   const checks: DoctorCheck[] = [];
 
   // ── Environment ──────────────────────────────────────────────────────────
   checks.push(
-    check('Node.js >= 20', () => {
+    await check('Node.js >= 20', () => {
       const v = process.version.replace(/^v/, '');
       const major = parseInt(v.split('.')[0] ?? '0', 10);
       if (major >= 20) return { status: 'pass', message: `Node.js ${v}` };
@@ -65,7 +146,7 @@ export function runDoctorChecks(cwd?: string): DoctorReport {
   );
 
   checks.push(
-    check('npm available', () => {
+    await check('npm available', () => {
       if (commandExists('npm')) return { status: 'pass', message: 'npm found' };
       return { status: 'fail', message: 'npm not found', fix: 'Install npm via Node.js installer' };
     }),
@@ -73,7 +154,7 @@ export function runDoctorChecks(cwd?: string): DoctorReport {
 
   // ── Workspace ─────────────────────────────────────────────────────────────
   checks.push(
-    check('Workspace initialized (.cloned/)', () => {
+    await check('Workspace initialized (.cloned/)', () => {
       if (!existsSync(paths.root)) {
         return { status: 'fail', message: 'Workspace not initialized', fix: 'Run: cloned init' };
       }
@@ -94,7 +175,7 @@ export function runDoctorChecks(cwd?: string): DoctorReport {
   );
 
   checks.push(
-    check('Config file present', () => {
+    await check('Config file present', () => {
       if (existsSync(paths.config))
         return { status: 'pass', message: 'config.yaml present' };
       return { status: 'fail', message: 'config.yaml missing', fix: 'Run: cloned init' };
@@ -102,7 +183,7 @@ export function runDoctorChecks(cwd?: string): DoctorReport {
   );
 
   checks.push(
-    check('State DB present', () => {
+    await check('State DB present', () => {
       if (!existsSync(paths.stateDb)) {
         return { status: 'fail', message: 'state.db missing', fix: 'Run: cloned init' };
       }
@@ -112,7 +193,7 @@ export function runDoctorChecks(cwd?: string): DoctorReport {
 
   // ── SQLite WAL mode ───────────────────────────────────────────────────────
   checks.push(
-    check('SQLite WAL mode enabled', () => {
+    await check('SQLite WAL mode enabled', () => {
       if (!existsSync(paths.stateDb)) {
         return { status: 'warn', message: 'state.db not found – skipping WAL check' };
       }
@@ -139,7 +220,7 @@ export function runDoctorChecks(cwd?: string): DoctorReport {
   );
 
   checks.push(
-    check('Registry present', () => {
+    await check('Registry present', () => {
       if (existsSync(paths.registry))
         return { status: 'pass', message: 'registry.yaml present' };
       return { status: 'fail', message: 'registry.yaml missing', fix: 'Run: cloned init' };
@@ -147,7 +228,7 @@ export function runDoctorChecks(cwd?: string): DoctorReport {
   );
 
   checks.push(
-    check('Audit log present', () => {
+    await check('Audit log present', () => {
       if (existsSync(paths.auditLog))
         return { status: 'pass', message: 'audit.log present' };
       return {
@@ -158,7 +239,7 @@ export function runDoctorChecks(cwd?: string): DoctorReport {
   );
 
   checks.push(
-    check('Trust store directory', () => {
+    await check('Trust store directory', () => {
       if (existsSync(paths.trustDir))
         return { status: 'pass', message: 'trust/ directory present' };
       return {
@@ -170,42 +251,88 @@ export function runDoctorChecks(cwd?: string): DoctorReport {
   );
 
   // ── Vault ─────────────────────────────────────────────────────────────────
+  const vaultFile = `${paths.root}/vault.dev.json`;
+  const vaultProviderName = config?.vault_provider ?? 'file';
+
   checks.push(
-    check('Vault reachable', () => {
-      const vaultFile = `${paths.root}/vault.dev.json`;
-      if (existsSync(vaultFile)) {
-        return { status: 'pass', message: `Dev vault present at ${vaultFile}` };
+    await check('Vault provider reachable', async () => {
+      if (!config) {
+        return {
+          status: 'fail',
+          message: 'Workspace not initialized – cannot resolve vault provider',
+          fix: 'Run: cloned init',
+        };
       }
-      return {
-        status: 'warn',
-        message: 'Dev vault file not found (will be created on first secret write)',
-        fix: 'Run: cloned vault set <key> <value>',
-      };
+
+      if (vaultProviderName === 'file' && !existsSync(vaultFile)) {
+        return {
+          status: 'warn',
+          message: `Dev vault file not found at ${vaultFile} (will be created on first secret write)`,
+          fix: 'Run: cloned vault set <key> <value>',
+        };
+      }
+
+      try {
+        const vault = getVaultProvider({ provider: vaultProviderName, filePath: vaultFile });
+        const status = await vault.status();
+        if (status.healthy) {
+          return {
+            status: 'pass',
+            message: status.message ?? `${status.provider} provider healthy`,
+          };
+        }
+        return {
+          status: 'warn',
+          message: status.message ?? `${status.provider} provider reported unhealthy state`,
+          fix: 'Run: cloned vault status',
+        };
+      } catch (err) {
+        const fix =
+          vaultProviderName === 'azure'
+            ? 'Install @azure/keyvault-secrets @azure/identity and export AZURE_* vars'
+            : 'Re-run: cloned init (or switch back via `cloned vault provider file`)';
+        return {
+          status: 'fail',
+          message: `Failed to load ${vaultProviderName} provider: ${(err as Error).message}`,
+          fix,
+        };
+      }
     }),
   );
 
   checks.push(
-    check('LLM API key configured', () => {
+    await check('LLM API key configured', async () => {
       const envKey = process.env['LLM_API_KEY'] ?? process.env['OPENAI_API_KEY'];
       if (envKey) {
         return { status: 'pass', message: 'LLM API key found in environment' };
       }
-      const vaultFile = `${paths.root}/vault.dev.json`;
-      if (existsSync(vaultFile)) {
-        try {
-          const store = JSON.parse(readFileSync(vaultFile, 'utf8')) as {
-            secrets?: Record<string, unknown>;
-          };
-          if (store.secrets?.['llm.api_key']) {
-            return { status: 'pass', message: 'LLM API key found in vault' };
-          }
-        } catch {
-          // Ignore parse error
-        }
+      if (!config) {
+        return {
+          status: 'warn',
+          message: 'Workspace not initialized; cannot read vault for llm.api_key',
+          fix: 'Run: cloned init',
+        };
       }
+      try {
+        const vault = getVaultProvider({ provider: vaultProviderName, filePath: vaultFile });
+        const secret = await vault.getSecret('llm.api_key');
+        if (secret) {
+          return { status: 'pass', message: 'LLM API key found in vault' };
+        }
+      } catch (err) {
+        return {
+          status: 'warn',
+          message: `Unable to read vault: ${(err as Error).message}`,
+          fix: 'Run: cloned vault status',
+        };
+      }
+      const localHints = describeLocalLlmOptions();
+      const hintSuffix = localHints
+        ? ` Detected local runtimes: ${localHints}. Run the doctor fixer to connect automatically or set a key manually.`
+        : '';
       return {
         status: 'warn',
-        message: 'LLM API key not configured (required for synthesis)',
+        message: `LLM API key not configured (required for synthesis).${hintSuffix}`,
         fix: 'Run: cloned vault set llm.api_key <your-key>  or set LLM_API_KEY env var',
       };
     }),
@@ -213,7 +340,7 @@ export function runDoctorChecks(cwd?: string): DoctorReport {
 
   // ── Security ──────────────────────────────────────────────────────────────
   checks.push(
-    check('gitleaks available', () => {
+    await check('gitleaks available', () => {
       if (commandExists('gitleaks'))
         return { status: 'pass', message: 'gitleaks found' };
       return {
@@ -225,7 +352,7 @@ export function runDoctorChecks(cwd?: string): DoctorReport {
   );
 
   checks.push(
-    check('API bind is loopback', () => {
+    await check('API bind is loopback', () => {
       const host = process.env['CLONED_API_HOST'] ?? '127.0.0.1';
       const isLoopback = host === '127.0.0.1' || host === 'localhost' || host === '::1';
       if (isLoopback) return { status: 'pass', message: `API binds to ${host} (loopback)` };
@@ -239,7 +366,7 @@ export function runDoctorChecks(cwd?: string): DoctorReport {
 
   // ── Connector registry ───────────────────────────────────────────────────
   checks.push(
-    check('Registry parses cleanly', () => {
+    await check('Registry parses cleanly', () => {
       if (!existsSync(paths.registry)) {
         return { status: 'warn', message: 'Registry not found – skipping parse check' };
       }

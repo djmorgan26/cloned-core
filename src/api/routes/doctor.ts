@@ -13,7 +13,7 @@ export async function registerDoctorRoutes(fastify: FastifyInstance, opts: Route
   fastify.get('/v1/doctor', async () => {
     // Resolve cwd from the workspace paths root so checks find the right files
     const cwd = opts.paths.root.replace(/\/\.cloned$/, '');
-    const report = runDoctorChecks(cwd);
+    const report = await runDoctorChecks(cwd);
     return report;
   });
 }

@@ -6,6 +6,7 @@
  */
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dump } from 'js-yaml';
+import type Database from 'better-sqlite3';
 import { registerTool } from '../runner.js';
 import { makeSafeFetch } from '../safe-fetch.js';
 import { webSearch } from './web-search.js';
@@ -23,6 +24,9 @@ import { loadPolicyPack } from '../../governance/policy.js';
 import { getClonedPaths } from '../../workspace/paths.js';
 import type { ClonedPaths } from '../../workspace/types.js';
 import type { DockerContainerRunner, SandboxMode } from '../container-runner.js';
+import { getConnectorState, setConnectorState } from '../../connector/state.js';
+import { fetchInstallationAccessToken } from '../../connector/github/app-auth.js';
+import { logger } from '../../shared/logger.js';
 
 export interface EgressUpdateOptions {
   policyPackId: string;
@@ -72,16 +76,63 @@ interface RegisterOptions {
   cwd?: string;
   sandboxMode?: SandboxMode;
   containerRunner?: DockerContainerRunner;
+  db?: Database.Database;
+  workspaceId?: string;
+  vaultProvider?: string;
+  vaultFilePath?: string;
 }
 
 export function registerBuiltinTools(policyPackId: string, options?: RegisterOptions): void {
   const paths = getClonedPaths(options?.cwd);
   // Load policy with workspace overrides (allows firewall edits via CLI/tool)
   const policy = loadPolicyPack(policyPackId, paths.policyDir);
-  const vaultPath = `${paths.root}/vault.dev.json`;
-  const vault = getVaultProvider(vaultPath);
+  const vaultPath = options?.vaultFilePath ?? `${paths.root}/vault.dev.json`;
+  const vault = getVaultProvider({
+    provider: options?.vaultProvider,
+    filePath: vaultPath,
+  });
   const sandboxMode: SandboxMode = options?.sandboxMode ?? 'process';
   const sandboxRunner = options?.containerRunner;
+  const db = options?.db;
+  const workspaceId = options?.workspaceId;
+
+  let warnedGithubFallback = false;
+
+  async function resolveGitHubToken(): Promise<string> {
+    const installationToken = await maybeGetGitHubInstallationToken();
+    if (installationToken) return installationToken;
+    const oauthToken = await vault.getSecret('github.oauth.access_token');
+    if (oauthToken) {
+      if (!warnedGithubFallback) {
+        logger.warn('GitHub App token unavailable; falling back to OAuth token.');
+        warnedGithubFallback = true;
+      }
+      return oauthToken;
+    }
+    throw new Error('GitHub not connected. Run: cloned connect github');
+  }
+
+  async function maybeGetGitHubInstallationToken(): Promise<string | null> {
+    if (!db || !workspaceId) return null;
+    const state = getConnectorState(db, workspaceId, 'connector.github.app');
+    if (!state) return null;
+    const rawInstallation = (state.data?.installation_id ?? state.data?.installationId) as number | string | undefined;
+    const installationId = typeof rawInstallation === 'string' ? Number(rawInstallation) : rawInstallation;
+    if (!installationId || !Number.isFinite(installationId)) return null;
+    try {
+      const tokenInfo = await fetchInstallationAccessToken({ vault, installationId: Number(installationId) });
+      setConnectorState(db, workspaceId, 'connector.github.app', 'AppActive', {
+        ...state.data,
+        installation_id: Number(installationId),
+        last_token_check: new Date().toISOString(),
+        last_token_expires_at: tokenInfo.expires_at,
+      });
+      return tokenInfo.token;
+    } catch (err) {
+      logger.warn('Failed to fetch GitHub App installation token', { error: (err as Error).message });
+      return null;
+    }
+  }
 
   function ensureSandboxRunner(toolId: string) {
     if (!sandboxRunner) {
@@ -153,8 +204,7 @@ export function registerBuiltinTools(policyPackId: string, options?: RegisterOpt
 
   // ── GitHub: Issue Create ──────────────────────────────────────────────────
   registerTool('cloned.mcp.github.issue.create@v1', async (input) => {
-    const token = await vault.getSecret('github.oauth.access_token');
-    if (!token) throw new Error('GitHub not connected. Run: cloned connect github');
+    const token = await resolveGitHubToken();
     const payload = {
       owner: String(input['owner'] ?? ''),
       repo: String(input['repo'] ?? ''),
@@ -179,8 +229,7 @@ export function registerBuiltinTools(policyPackId: string, options?: RegisterOpt
 
   // ── GitHub: PR Create ─────────────────────────────────────────────────────
   registerTool('cloned.mcp.github.pr.create@v1', async (input) => {
-    const token = await vault.getSecret('github.oauth.access_token');
-    if (!token) throw new Error('GitHub not connected. Run: cloned connect github');
+    const token = await resolveGitHubToken();
     const payload = {
       owner: String(input['owner'] ?? ''),
       repo: String(input['repo'] ?? ''),

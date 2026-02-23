@@ -12,6 +12,7 @@
  * The LLM endpoint can be overridden via:
  *   vault key "llm.api_base"     → e.g. "https://api.openai.com/v1"
  *   env var   LLM_API_BASE       → same
+ *   (Azure OpenAI users can store the deployment URL including ?api-version=...)
  */
 import type { SafeFetch } from '../safe-fetch.js';
 import type { VaultProvider } from '../../vault/types.js';
@@ -63,7 +64,8 @@ export async function synthesize(
       ? 'Include a "## Sources" section at the end with numbered citations.'
       : '');
 
-  const resp = await safeFetch(`${apiBase}/chat/completions`, {
+  const endpoint = buildCompletionsUrl(apiBase);
+  const resp = await safeFetch(endpoint, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -119,4 +121,16 @@ interface OpenAIResponse {
   model?: string;
   choices?: Array<{ message: { content: string } }>;
   usage?: { prompt_tokens: number; completion_tokens: number };
+}
+
+function stripTrailingSlash(value: string): string {
+  return value.endsWith('/') ? value.slice(0, -1) : value;
+}
+
+function buildCompletionsUrl(base: string): string {
+  const [withoutQuery, query] = base.split('?');
+  const trimmedBase = stripTrailingSlash(withoutQuery);
+  const hasCompletions = trimmedBase.endsWith('/chat/completions');
+  const endpoint = hasCompletions ? trimmedBase : `${trimmedBase}/chat/completions`;
+  return query ? `${endpoint}?${query}` : endpoint;
 }

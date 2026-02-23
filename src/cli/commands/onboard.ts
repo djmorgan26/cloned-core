@@ -84,7 +84,10 @@ export function registerOnboardCommand(program: Command): void {
       console.log('-'.repeat(60));
 
       // Check connector status from vault
-      const vault = getVaultProvider(`${paths.root}/vault.dev.json`);
+      const vault = getVaultProvider({
+        provider: config.vault_provider,
+        filePath: `${paths.root}/vault.dev.json`,
+      });
       console.log('\nConnector status:');
       for (const { connector } of plan.connectors_needed) {
         const isConnected = await checkConnectorConnected(connector, vault);

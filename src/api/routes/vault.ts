@@ -5,7 +5,8 @@ import { join } from 'node:path';
 
 export async function registerVaultRoutes(fastify: FastifyInstance, opts: RouteOpts) {
   const vaultFilePath = join(opts.paths.root, 'vault.dev.json');
-  const vault = getVaultProvider(vaultFilePath);
+  const providerName = opts.config?.vault_provider ?? 'file';
+  const vault = getVaultProvider({ provider: providerName, filePath: vaultFilePath });
 
   const serializeSecret = (secret: { name: string; lastModified?: string }) => ({
     name: secret.name,

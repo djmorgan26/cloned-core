@@ -36,12 +36,20 @@ Persisted state in `.cloned/state.db`:
   2) Choose target: personal account or org
   3) Select repos: existing or create new (if permitted)
   4) Install Cloned GitHub App (scope to selected repos)
-  5) Verify installation and permissions
-  6) Status: **Automation ready**
+  5) **Show installation details** – pull `/user/installations` (or org equivalent) and surface the installation ID + target slug so the user never hunts through GitHub settings manually.
+  6) Prompt for GitHub App ID + private key upload. The UI should call `cloned vault` APIs to store both and never keep PEM text in local state beyond the request.
+  7) Verify installation and permissions
+  8) Status: **Automation ready**
 
 ### CLI
-- Command: `cloned connect github`
-- Device-flow style UX (prints URL + code), then continues with selection and install guidance.
+- Bootstrap: `cloned connect github`
+  - Device-flow UX (URL + code) signs in and records **UserAuthed** state in `.cloned/state.db`.
+  - Access token is stored in the vault (`vault.dev.json` or Azure provider) only.
+- Completion: `cloned connect github --complete-install --installation-id <id> --app-id <app_id> --private-key-path ./cloned-app-private-key.pem`
+  - Installation ID lives at GitHub → Settings → Applications → **Installed GitHub Apps** → Cloned (copy the numeric ID from the URL). For org installs: Org → Settings → GitHub Apps.
+  - Private key: GitHub → Settings → Developer settings → GitHub Apps → Cloned → Generate private key. Save the `.pem` locally and point `--private-key-path` at it; the CLI writes the contents into the vault key `github.app.private_key`.
+  - App ID: same GitHub App settings view (displayed near the top). You can also pre-seed `GITHUB_APP_ID` / `GITHUB_APP_PRIVATE_KEY` env vars.
+- Verification: once the CLI has an installation ID + credentials it mints an installation access token to confirm **AppActive**. Subsequent GitHub tool calls prefer this short-lived token; the bootstrap OAuth token remains a fallback only.
 
 ## Permissions model (least privilege)
 - Onboarding agent proposes permissions based on blueprint(s) enabled.

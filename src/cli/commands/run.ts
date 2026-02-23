@@ -43,6 +43,10 @@ export function registerRunCommand(program: Command): void {
         cwd: process.cwd(),
         sandboxMode: sandbox,
         containerRunner,
+        db,
+        workspaceId: config.workspace_id,
+        vaultProvider: config.vault_provider,
+        vaultFilePath: `${paths.root}/vault.dev.json`,
       });
 
       // Build runtime variables from CLI flags

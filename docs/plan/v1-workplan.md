@@ -11,6 +11,25 @@ Note: Security track updates and firewall/local‑LLM decisions are centralized 
 
 This is the implementation order. Each phase has exit criteria and references acceptance tests.
 
+## Sequencing guardrails and readiness signals
+Multiple surfaces share the same contracts (schemas, DB tables, CLI/API shapes, UI). To avoid backtracking, use these guardrails:
+- **Schema-first contracts.** Finalize JSON schemas under `schemas/` and the SQLite layout before writing connectors, skills, or UI flows that rely on them.
+- **API + CLI before UI.** Document every route in `docs/api/openapi.yaml` and wire it through CLI workflows before building UI, SDKs, or external integrations. UI work only starts when API responses are stable.
+- **Governance/vault ahead of connectors.** Egress policy, approvals, and vault enforcement must exist before adding connectors or skills so that security posture never regresses.
+- **Acceptance tests as go/no-go gates.** Do not advance until the row’s acceptance sections are automated and green; they are the "move on" signal.
+
+| Phase | Start when… | Why this order | Move on when… |
+| --- | --- | --- | --- |
+| 0 – Repo + Release Hygiene | Repo skeleton + CI runners exist; stack choices + directories set (`src/`, `ui/`, `schemas/`, `docs/`). | Establishes a predictable tree for every later phase and guarantees CI + secret scanning are already catching regressions. | Acceptance tests A pass and release tags can be created without exposing secrets. |
+| 1 – Workspace + Governance Core | Phase 0 exit criteria met; base workspace + policy schemas drafted (`schemas/workspace.schema.json`, `policy/packs/*`). | Budgets, approvals, and audit models are the foundation for capability and connector work. | Acceptance tests B & C pass; CLI `cloned init`/`cloned approvals` flows are scriptable; schema docs frozen for this release. |
+| 2 – Capability Graph + Blueprint Engine | Workspace/governance data is stable; `src/capability/*` + `blueprints/` scaffolds exist; CLI `cloned onboard --dry-run` prints collected goals. | Blueprint scoring and graph traversal need the same policy + budget definitions to reason about available capabilities. | Acceptance tests D & E pass; onboarding produces a Plan of Record artifact; docs/api includes onboarding + capability surfaces. |
+| 3 – Vault Integration | Blueprint engine identifies which secrets are required; dev vault provider exists for contributors. | Connectors/skills consume secrets; capturing the contract before runtime work prevents rework. | Acceptance tests F pass; `cloned vault status` is reliable; Azure BYOV doc + tests explain switchover. |
+| 4 – Connector Runtime + Registry | Vault contract + policy enforcement are solid; docs/api/openapi.yaml already covers workspace/governance/vault routes. | Runtime, registry, and signing rely on secrets, trust stores, and allowlists being finalized. | Acceptance tests G & H pass; registry YAML flow works end-to-end; connectors can be listed/enforced via CLI/API. |
+| 5 – GitHub + YouTube Connectors | Runtime loader, SafeFetch, and signing verification are stable; CLI `cloned connect` writes state; `.cloned/registry.yaml` contains sample entries. | Real connectors should not lead runtime changes; they prove the platform contract. | Acceptance tests I & J pass; connectors publish tool schemas; tokens live in vault with approvals/budgets enforced. |
+| 6 – Skill Runtime + Pipelines | Connectors supply the needed capabilities; artifact schema + runner APIs exist; `/runs` API started. | Pipelines and skill packs depend on tool availability and governance hooks to block violations. | Acceptance tests K & L pass; `cloned run pipeline.research.report` and builder/creator flows output manifests deterministically. |
+| 7 – Command Center UI | Workspace/approvals/runs/connectors/budgets/vault APIs are implemented + documented; CLI workflows are stable; data exists to render (audit rows, run logs, connector states). | UI consumes the API; building it earlier would duplicate business logic or require breaking changes (API-before-frontend guardrail). | Acceptance tests M pass; UI only calls documented endpoints; device pairing enforced; no mocks needed. |
+| 8 – Public Release Hardening | All functional phases are complete; docs + API schemas versioned; telemetry/logging in place. | Hardening needs a full system to validate doctor checks, crash recovery, and threat model. | Acceptance tests N pass; `cloned doctor` catches misconfigurations; release artifacts/changelog ready. |
+
 ## Phase 0: Repo + Release Hygiene (must be first)
 Deliverables:
 - Repo structure established (core/runtime/connectors/ui/knowledge)
@@ -44,7 +63,8 @@ Deliverables:
   - selects blueprint(s)
   - produces Plan of Record
   - executes allowed setup steps
- - Initial blueprints added under `blueprints/`
+- Initial blueprints added under `blueprints/`
+- Base OpenAPI coverage for workspace + onboarding routes in `docs/api/openapi.yaml` so CLI and future UI consumers share the exact contract
 
 Exit criteria:
 - Acceptance tests D and E pass (capability reasoning, blueprint selection, onboarding plan)
@@ -66,6 +86,7 @@ Deliverables:
 - Runtime can load connectors, list tools, and enforce allowlists
 - MCP connector contract documented ([docs/connectors/mcp-contract.md](../connectors/mcp-contract.md))
 - Trust store structure defined ([docs/trust/structure.md](../trust/structure.md))
+- Connectors/registry/runs endpoints implemented in Fastify and documented in `docs/api/openapi.yaml`, keeping CLI/API/UI in sync
 - Egress allowlists enforced per policy; connectors declare outbound hosts
 
 Exit criteria:
@@ -106,7 +127,7 @@ Deliverables:
   - Secrets status view (no values shown; just health and references)
   - Firewall + policy overrides view (read-only defaults, workspace overlay diff, approval-gated change requests)
 - UI must be professional, intuitive, “hyperscaler-like” (see [docs/ux/command-center.md](../ux/command-center.md))
- - Local API OpenAPI spec stubbed (docs/api/openapi.yaml)
+ - Local API OpenAPI spec (docs/api/openapi.yaml) is complete, versioned, and used to generate the UI client (no ad-hoc fetches)
 
 Exit criteria:
 - Acceptance tests M pass (UI shows real state; no secrets; controls enforce approvals)

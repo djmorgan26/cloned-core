@@ -100,6 +100,17 @@ export function applyInlineSchema(db: Database.Database): void {
     );
     CREATE INDEX IF NOT EXISTS idx_pairings_status ON pairings(status);
 
+    CREATE TABLE IF NOT EXISTS connector_state (
+      workspace_id TEXT NOT NULL,
+      connector_id TEXT NOT NULL,
+      state TEXT NOT NULL,
+      data_json TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (workspace_id, connector_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_connector_state_workspace ON connector_state(workspace_id);
+
     CREATE VIEW IF NOT EXISTS v_pending_approvals AS
     SELECT id, created_at, actor, scope, status FROM approvals WHERE status = 'pending';
   `);

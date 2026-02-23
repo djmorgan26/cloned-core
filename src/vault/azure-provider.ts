@@ -23,6 +23,25 @@ interface SecretClientLike {
   listPropertiesOfSecrets(): AsyncIterable<{ name?: string; updatedOn?: Date }>;
 }
 
+/**
+ * Normalize secret names for Azure Key Vault.
+ *
+ * Azure allows only alphanumeric characters and hyphens. Dots and other
+ * punctuation appear throughout our logical secret IDs (e.g., `llm.api_key`).
+ * Map any disallowed character to a single hyphen so we never leak invalid
+ * names to the SDK when storing or retrieving secrets.
+ */
+export function sanitizeAzureSecretName(key: string): string {
+  const sanitized = key
+    .trim()
+    .replace(/\./g, '-')
+    .replace(/[^a-zA-Z0-9-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-/, '')
+    .replace(/-$/, '');
+  return sanitized.length > 0 ? sanitized : 'secret';
+}
+
 export class AzureKeyVaultProvider implements VaultProvider {
   readonly name = 'azure';
   private _client: SecretClientLike | null = null;
@@ -54,9 +73,9 @@ export class AzureKeyVaultProvider implements VaultProvider {
     return this._client;
   }
 
-  /** Azure KV secret names: alphanumeric + hyphens only. Map dots to hyphens. */
+  /** Azure KV secret names: alphanumeric + hyphens only. Map dots/invalid chars to hyphens. */
   private sanitizeKey(key: string): string {
-    return key.replace(/\./g, '-').replace(/[^a-zA-Z0-9-]/g, '_');
+    return sanitizeAzureSecretName(key);
   }
 
   async setSecret(key: string, value: string): Promise<void> {
